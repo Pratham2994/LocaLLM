@@ -1,6 +1,6 @@
 # Local LLM Lab: Master File
 
-> **Version:** 23 · **Last updated:** 2026-09-24 · **Owner:** Pratham
+> **Version:** 24 · **Last updated:** 2026-09-24 · **Owner:** Pratham
 > **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 (harness: milestones 1-2 built and run; 3-5 next)
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
@@ -61,7 +61,7 @@ You are continuing a learning project on running LLMs locally. Rules:
   - [x] Milestone 1: `tasks/tasks.yaml`, 24 tasks (Python, JS, SQL, a little C++); `lab selftest` passes
   - [x] Milestone 2: `uv run lab run` (resumable, `results/runs.jsonl`); thinking-off run done (9.4a)
   - [x] Verify the thinking-on path end to end (first attempt stopped: laptop low on memory; second, with apps closed: PASS, all fields correct; 9.4a)
-  - [ ] Full thinking-on set (8 tasks × 1, est. 30+ min; run when the laptop is idle)
+  - [x] Full thinking-on set (8 tasks × 1): 7/8 in 36.4 min vs thinking off 5/8 in 2.3 min (9.4a)
   - [ ] Milestone 3: `report.py` (pass rate, correct answers per hour, charts)
   - [ ] Milestone 4: `needle.py` · Milestone 5 (optional): `bench.py`
   - [ ] Pratham: read the task list, add or change tasks (section 8)
@@ -911,6 +911,26 @@ Failures (all checked by hand: real model mistakes, not harness errors):
 - `ttfa_s` is the number that matters with thinking on: the reader waits 1 min 45 s for the first word of the answer.
 - **Weakens the batch-size hypothesis above:** the same question with thinking on (53-token prompt) prefilled in 1.18 s, vs 3.95 s for the 55-token thinking-off prompt. The slow case may have been a one-off stall; the `llama-bench` test will decide.
 
+**Full thinking-on set, 2026-09-24** (laptop idle; the 7 remaining `both` tasks × 1; resume skipped `math-pin-count`, already done). All `stop`, no errors, decode mean 14.0 tok/s.
+
+| Task | Off | Off time | On | On time | First answer token | Thinking tokens | Time × |
+|---|---|---|---|---|---|---|---|
+| `math-pin-count` | PASS | 32 s | PASS | 121 s | 105 s | 1,417 | 3.7 |
+| `bug-py-paginate` | FAIL | 23 s | **PASS** | 633 s | 611 s | 8,348 | 27.6 |
+| `bug-py-split-pence` | PASS | 14 s | PASS | 311 s | 297 s | 4,161 | 21.9 |
+| `bug-js-top-scores` | PASS | 12 s | PASS | 425 s | 417 s | 5,793 | 34.9 |
+| `bug-sql-left-join` | FAIL | 12 s | **PASS** | 385 s | 375 s | 5,191 | 31.2 |
+| `explain-js-event-loop` | FAIL | 2 s | FAIL | 112 s | 112 s | 1,571 | 64.2 |
+| `math-batch-job` | PASS | 17 s | PASS | 90 s | 76 s | 1,074 | 5.3 |
+| `math-sla-downtime` | PASS | 24 s | PASS | 111 s | 91 s | 1,289 | 4.7 |
+| **Total** | **5/8** | **2.3 min** | **7/8** | **36.4 min** | | | **16×** |
+
+- **Correct answers per hour on these 8 tasks: thinking off 132, thinking on 12.** Thinking fixed 2 tasks (both bug fixes that failed with thinking off) but cost 16× the time. By the core principle (section 2), thinking off wins by ~11×. n = 1 per task; Phase 5's 3 repeats must confirm.
+- **Bug tasks think the longest** (4,000-8,300 tokens, 5-10.5 min each at ~14 tok/s); maths tasks think ~1,000-1,400 tokens (1.5-2 min).
+- With thinking on, `bug-sql-left-join` returned a real fix (thinking off returned the unchanged query), and `bug-py-paginate` had no import typo.
+- `explain-js-event-loop` failed both ways. Thinking on answered `A E C D F G B`: it got the microtask order right (C D F) but ran it before the last synchronous line G. Correct: `A E G C D F B`.
+- Useful rule to test in Phase 5: **thinking off by default; thinking on only for a bug fix that failed once**, since a retry with thinking costs ~5-10 min but can turn a failure into a pass.
+
 Observations:
 - **Explaining a bug ≠ fixing it** (two cases above). Only running the code or query shows it; eyeballing the explanation would have marked both correct.
 - Short tasks are dominated by fixed costs: `if-*` tasks take 2-3 s, of which ~1.3 s is time to first token.
@@ -1140,3 +1160,4 @@ Claude/GPT also generate one token at a time (plus internal planning). Differenc
 | 2026-09-24 | Claude (chat) | v21: depth test (−5% at 4K, −15% at 16K, matches KV maths); Phase 3 complete; Phase 4 next |
 | 2026-09-24 | Claude Code | v22: Phase 4 milestones 1-2 built. API probe (fields in 9.4a); `lab` CLI (run / selftest / tasks / probe); machine files + presets; 24 tasks (Python, JS, SQL, a little C++) with reference + wrong answers; sandboxed checks; first real runs (thinking off 17/23, 136 correct/hour); Smart App Control found to block some compiled C++ test programs (handled as "not graded"); open question on Vulkan prefill at odd batch sizes; `CLAUDE.md` imports this file; `.gitignore` |
 | 2026-09-24 | Claude Code | v23: first thinking-on run stopped (laptop low on memory, nothing saved); rerun with apps closed verified the thinking path end to end (`math-pin-count`: PASS, 1,417 thinking tokens, first answer token at 105 s, 3.7× slower than thinking off); batch-size hypothesis weakened |
+| 2026-09-24 | Claude Code | v24: full thinking-on set (8 tasks × 1): 7/8 in 36.4 min vs thinking off 5/8 in 2.3 min → 12 vs 132 correct answers per hour; thinking fixed the two failed bug tasks at 6-10 min each |

@@ -1,0 +1,13 @@
+# Sampling presets. Configs refer to these by name (`sampling: qwen35-nothink-general`)
+# or give the values inline. Every request sends all of them explicitly, because
+# llama-server's own defaults (temp 0.8, top_k 40, min_p 0.05) are not what the model cards say.
+
+# Qwen3.5 official model card (LOCAL_LLM_LAB.md section 5.3)
+qwen35-think-general:     {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+qwen35-think-coding:      {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+qwen35-nothink-general:   {temperature: 0.7, top_p: 0.8,  top_k: 20, min_p: 0.0, presence_penalty: 1.5, repeat_penalty: 1.0}
+qwen35-nothink-reasoning: {temperature: 1.0, top_p: 1.0,  top_k: 40, min_p: 0.0, presence_penalty: 2.0, repeat_penalty: 1.0}
+
+# Only for "do two engines give the same answer?" sanity checks. Never for quality tests
+# on thinking models (greedy decoding causes repetition loops).
+greedy-sanity:            {temperature: 0.0, top_p: 1.0,  top_k: 1,  min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}

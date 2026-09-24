@@ -1,0 +1,1229 @@
+# Task set for the harness (LOCAL_LLM_LAB.md sections 7 and 8).
+# All code, names and data are invented. Never put work (Barclays) code or data here.
+#
+# Fields
+#   id        unique, lowercase-with-hyphens
+#   category  small_function | bug_finding | sql_regex | explain_code | maths_logic
+#             | instruction_following | summarise
+#   thinking  off  -> runs only in thinking-off configs
+#             on   -> runs only in thinking-on configs
+#             both -> runs in both
+#   check     exact | contains | regex | json_match | python_tests | js_tests | cpp_tests
+#             | sql_result | manual
+#   reference a known-good answer written like a model reply; `lab selftest` must PASS it
+#   wrong     optional known-bad answer; `lab selftest` must FAIL it (proves the tests bite)
+#   notes     the trap in the task, for whoever reads the failures
+#
+# Check fields
+#   exact:        expected (string/number/list of them), extract (regex; last match is used)
+#   contains:     include (each item a string, or a list = any one of them), exclude
+#   regex:        patterns (all must match), not_patterns (none may match), fullmatch
+#   json_match:   expected (the whole answer must parse as JSON and equal this)
+#   python_tests / js_tests / cpp_tests: tests (appended after the model's code), entry, timeout_s
+#   sql_result:   fixture, expected_sql (rows compared with the model query's rows), ordered
+#
+# Changing a prompt changes its hash, so the task is run again; old results stay in runs.jsonl.
+
+fixtures:
+  shop:
+    ddl: |
+      CREATE TABLE customers (
+        id   INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        city TEXT NOT NULL
+      );
+      CREATE TABLE orders (
+        id          INTEGER PRIMARY KEY,
+        customer_id INTEGER NOT NULL REFERENCES customers(id),
+        order_date  TEXT NOT NULL,   -- 'YYYY-MM-DD'
+        status      TEXT NOT NULL,   -- 'paid', 'refunded' or 'cancelled'
+        total_pence INTEGER NOT NULL
+      );
+      CREATE TABLE shipment_events (
+        id         INTEGER PRIMARY KEY,
+        order_id   INTEGER NOT NULL REFERENCES orders(id),
+        status     TEXT NOT NULL,    -- 'packed', 'shipped', 'delivered' or 'returned'
+        event_time TEXT NOT NULL     -- 'YYYY-MM-DD HH:MM:SS'
+      );
+    data: |
+      INSERT INTO customers VALUES
+        (1, 'Asha', 'Leeds'), (2, 'Ben', 'York'), (3, 'Chloe', 'Leeds'), (4, 'Dev', 'Bath'),
+        (5, 'Ella', 'York'), (6, 'Farah', 'Bath'), (7, 'Gus', 'Leeds');
+      INSERT INTO orders VALUES
+        (1, 1, '2025-01-01', 'paid', 3000),
+        (2, 1, '2025-03-15', 'paid', 12000),
+        (3, 2, '2025-02-10', 'paid', 9000),
+        (4, 2, '2025-02-20', 'refunded', 20000),
+        (5, 3, '2025-03-02', 'paid', 4000),
+        (6, 3, '2025-05-30', 'paid', 5000),
+        (7, 3, '2026-01-01', 'paid', 8000),
+        (8, 4, '2024-12-31', 'paid', 50000),
+        (9, 4, '2025-05-05', 'paid', 7000),
+        (10, 5, '2025-03-28', 'paid', 16000),
+        (11, 6, '2025-02-14', 'cancelled', 30000),
+        (12, 6, '2025-06-01', 'paid', 2000);
+      INSERT INTO shipment_events VALUES
+        (1, 2, 'packed', '2025-03-16 09:00:00'),
+        (2, 2, 'shipped', '2025-03-16 17:30:00'),
+        (3, 2, 'delivered', '2025-03-18 11:05:00'),
+        (4, 3, 'packed', '2025-02-11 08:00:00'),
+        (5, 5, 'shipped', '2025-03-04 10:00:00'),
+        (6, 5, 'packed', '2025-03-03 16:45:00'),
+        (7, 3, 'shipped', '2025-02-12 07:15:00'),
+        (8, 10, 'packed', '2025-03-29 12:00:00'),
+        (9, 10, 'returned', '2025-04-10 09:30:00'),
+        (10, 10, 'delivered', '2025-04-02 14:00:00');
+
+tasks:
+
+# =====================================================================  small_function
+
+- id: py-parse-date
+  category: small_function
+  thinking: off
+  check: python_tests
+  entry: parse_date
+  notes: British day-first format is the trap (07/03/2025 is 7 March). Impossible dates must raise.
+  prompt: |
+    Write a Python function `parse_date(text: str) -> datetime.date` for an invoicing service.
+    It must accept exactly these three formats:
+    - ISO: `2025-03-07`
+    - British numeric: `07/03/2025` (day/month/year)
+    - Short text: `7 Mar 2025` (English three-letter month; day with or without a leading zero)
+    Surrounding whitespace is allowed. Any other input, including impossible dates such as
+    `31/02/2025`, must raise `ValueError`. Use only the standard library.
+
+    Reply with one ```python code block containing the complete code, including imports.
+    Keep any explanation short and put it after the code block.
+  tests: |
+    from datetime import date
+    assert parse_date("2025-03-07") == date(2025, 3, 7)
+    assert parse_date("07/03/2025") == date(2025, 3, 7)
+    assert parse_date("7 Mar 2025") == date(2025, 3, 7)
+    assert parse_date("07 Mar 2025") == date(2025, 3, 7)
+    assert parse_date("  2024-12-31 ") == date(2024, 12, 31)
+    assert parse_date("12/01/2025") == date(2025, 1, 12), "day must come first"
+    for bad in ["31/02/2025", "2025/03/07", "March 7 2025", "", "7 Mar 25", "13/13/2025"]:
+        try:
+            parse_date(bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"no ValueError for {bad!r}")
+  reference: |
+    ```python
+    from datetime import date, datetime
+
+    FORMATS = ("%Y-%m-%d", "%d/%m/%Y", "%d %b %Y")
+
+    def parse_date(text: str) -> date:
+        text = text.strip()
+        for fmt in FORMATS:
+            try:
+                return datetime.strptime(text, fmt).date()
+            except ValueError:
+                continue
+        raise ValueError(f"unrecognised date: {text!r}")
+
+    print(parse_date("7 Mar 2025"))
+    ```
+  wrong: |
+    ```python
+    from datetime import datetime
+
+    def parse_date(text):
+        for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%d %b %Y"):
+            try:
+                return datetime.strptime(text.strip(), fmt).date()
+            except ValueError:
+                pass
+        raise ValueError(text)
+    ```
+
+- id: py-normalise-order
+  category: small_function
+  thinking: off
+  check: python_tests
+  entry: normalise_order
+  notes: Missing keys must raise ValueError, not KeyError. Blank currency defaults to GBP. Input must not be mutated.
+  prompt: |
+    A checkout service receives raw order dicts from a web form. Write a Python function
+    `normalise_order(raw: dict) -> dict` that returns a NEW dict with exactly these keys:
+    - `sku`: `raw["sku"]` stripped and upper-cased; must not be empty after stripping.
+    - `qty`: `raw["qty"]` as an `int` (it may arrive as an int or a string such as `" 3 "`);
+      must be from 1 to 99 inclusive.
+    - `unit_price_pence`: `raw["unit_price_pence"]` as an `int`; must be 0 or more.
+    - `currency`: `raw.get("currency")` stripped and upper-cased; `"GBP"` when it is missing,
+      `None` or blank. Only `GBP`, `EUR` and `USD` are allowed.
+    - `total_pence`: `qty * unit_price_pence`.
+    Ignore any other keys. Any invalid value, and any missing `sku`, `qty` or
+    `unit_price_pence`, must raise `ValueError` (not `KeyError`). Do not modify `raw`.
+
+    Reply with one ```python code block containing the complete code, including imports.
+    Keep any explanation short and put it after the code block.
+  tests: |
+    raw = {"sku": " ab-12 ", "qty": " 3 ", "unit_price_pence": 250, "currency": "eur", "note": "gift"}
+    before = dict(raw)
+    assert normalise_order(raw) == {"sku": "AB-12", "qty": 3, "unit_price_pence": 250,
+                                    "currency": "EUR", "total_pence": 750}
+    assert raw == before, "input was modified"
+    assert normalise_order({"sku": "x", "qty": 1, "unit_price_pence": 0})["currency"] == "GBP"
+    assert normalise_order({"sku": "x", "qty": 99, "unit_price_pence": 5, "currency": "  "})["currency"] == "GBP"
+    assert normalise_order({"sku": "x", "qty": 2, "unit_price_pence": 5, "currency": None})["total_pence"] == 10
+    bad_inputs = [
+        {"sku": "  ", "qty": 1, "unit_price_pence": 1},
+        {"sku": "x", "qty": 0, "unit_price_pence": 1},
+        {"sku": "x", "qty": 100, "unit_price_pence": 1},
+        {"sku": "x", "qty": "two", "unit_price_pence": 1},
+        {"sku": "x", "qty": 1, "unit_price_pence": -1},
+        {"sku": "x", "qty": 1, "unit_price_pence": 1, "currency": "JPY"},
+        {"qty": 1, "unit_price_pence": 1},
+        {"sku": "x", "unit_price_pence": 1},
+        {"sku": "x", "qty": 1},
+    ]
+    for bad in bad_inputs:
+        try:
+            normalise_order(bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"no ValueError for {bad!r}")
+  reference: |
+    ```python
+    ALLOWED = {"GBP", "EUR", "USD"}
+
+    def normalise_order(raw: dict) -> dict:
+        try:
+            sku = str(raw["sku"]).strip().upper()
+            qty = int(raw["qty"])
+            price = int(raw["unit_price_pence"])
+        except KeyError as e:
+            raise ValueError(f"missing field {e}") from None
+        if not sku:
+            raise ValueError("empty sku")
+        if not 1 <= qty <= 99:
+            raise ValueError("qty out of range")
+        if price < 0:
+            raise ValueError("negative price")
+        currency = (raw.get("currency") or "").strip().upper() or "GBP"
+        if currency not in ALLOWED:
+            raise ValueError(f"currency {currency} not allowed")
+        return {"sku": sku, "qty": qty, "unit_price_pence": price,
+                "currency": currency, "total_pence": qty * price}
+    ```
+  wrong: |
+    ```python
+    def normalise_order(raw):
+        sku = raw["sku"].strip().upper()
+        qty = int(raw["qty"])
+        price = int(raw["unit_price_pence"])
+        if not sku or not 1 <= qty <= 99 or price < 0:
+            raise ValueError("bad order")
+        currency = (raw.get("currency") or "").strip().upper() or "GBP"
+        if currency not in {"GBP", "EUR", "USD"}:
+            raise ValueError("bad currency")
+        return {"sku": sku, "qty": qty, "unit_price_pence": price,
+                "currency": currency, "total_pence": qty * price}
+    ```
+
+- id: py-merge-slots
+  category: small_function
+  thinking: off
+  check: python_tests
+  entry: merge_slots
+  notes: Touching slots merge; a slot fully inside another must not shrink the end (use max).
+  prompt: |
+    A meeting-room booking service stores busy slots as `(start, end)` tuples of minutes
+    since midnight, with `start < end`. Write a Python function
+    `merge_slots(slots: list[tuple[int, int]]) -> list[tuple[int, int]]` that merges slots
+    that overlap OR touch (for example `(60, 90)` and `(90, 120)` become `(60, 120)`) and
+    returns a list of tuples sorted by start. The input may be unsorted or empty.
+    Do not modify the input list.
+
+    Reply with one ```python code block containing the complete code, including imports.
+    Keep any explanation short and put it after the code block.
+  tests: |
+    assert merge_slots([]) == []
+    assert merge_slots([(60, 90)]) == [(60, 90)]
+    assert merge_slots([(60, 90), (90, 120)]) == [(60, 120)]
+    assert merge_slots([(300, 360), (60, 120), (100, 150), (10, 20)]) == [(10, 20), (60, 150), (300, 360)]
+    assert merge_slots([(0, 500), (100, 200), (450, 600)]) == [(0, 600)]
+    assert merge_slots([(10, 20), (21, 30)]) == [(10, 20), (21, 30)]
+    data = [(5, 9), (1, 3)]
+    merge_slots(data)
+    assert data == [(5, 9), (1, 3)], "input was modified"
+  reference: |
+    ```python
+    def merge_slots(slots):
+        merged = []
+        for start, end in sorted(slots):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        return merged
+    ```
+  wrong: |
+    ```python
+    def merge_slots(slots):
+        merged = []
+        for start, end in sorted(slots):
+            if merged and start < merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+            else:
+                merged.append((start, end))
+        return merged
+    ```
+
+- id: js-parse-query
+  category: small_function
+  thinking: off
+  check: js_tests
+  entry: parseQuery
+  notes: Split on the FIRST '=' only; '+' means space; repeated keys become arrays.
+  prompt: |
+    Write a JavaScript function `parseQuery(qs)` for a Node.js API gateway. The input is a
+    query string with or without a leading `?`. Return a plain object literal (`{}`):
+    - Pairs are separated by `&`; key and value are separated by the FIRST `=`.
+    - Decode `+` as a space, then percent-decode (`decodeURIComponent`) keys and values.
+    - A key without `=` gets the value `""`.
+    - A key that appears once gets a string; a key that appears more than once gets an
+      array of all its values, in order.
+    - Skip empty pairs (from `&&` or a trailing `&`).
+    Do not use `URLSearchParams` or any library.
+
+    Reply with one ```javascript code block containing the complete function.
+    Keep any explanation short and put it after the code block.
+  tests: |
+    assert.deepStrictEqual(parseQuery(""), {});
+    assert.deepStrictEqual(parseQuery("?"), {});
+    assert.deepStrictEqual(parseQuery("?a=1&b=two"), { a: "1", b: "two" });
+    assert.deepStrictEqual(parseQuery("tag=x&tag=y&tag=z"), { tag: ["x", "y", "z"] });
+    assert.deepStrictEqual(parseQuery("q=hello+world%21&empty=&flag"), { q: "hello world!", empty: "", flag: "" });
+    assert.deepStrictEqual(parseQuery("a=1&&b=2&"), { a: "1", b: "2" });
+    assert.deepStrictEqual(parseQuery("expr=a%3Db%26c"), { expr: "a=b&c" });
+    assert.deepStrictEqual(parseQuery("x=1=2"), { x: "1=2" });
+    assert.deepStrictEqual(parseQuery("na%20me=J%C3%BCrgen"), { "na me": "Jürgen" });
+  reference: |
+    ```javascript
+    function parseQuery(qs) {
+      const out = {};
+      const s = qs.startsWith("?") ? qs.slice(1) : qs;
+      const decode = (x) => decodeURIComponent(x.replace(/\+/g, " "));
+      for (const pair of s.split("&")) {
+        if (pair === "") continue;
+        const i = pair.indexOf("=");
+        const key = decode(i === -1 ? pair : pair.slice(0, i));
+        const value = decode(i === -1 ? "" : pair.slice(i + 1));
+        if (Object.prototype.hasOwnProperty.call(out, key)) {
+          out[key] = Array.isArray(out[key]) ? [...out[key], value] : [out[key], value];
+        } else {
+          out[key] = value;
+        }
+      }
+      return out;
+    }
+    ```
+  wrong: |
+    ```javascript
+    function parseQuery(qs) {
+      const out = {};
+      for (const pair of qs.replace(/^\?/, "").split("&")) {
+        if (!pair) continue;
+        const [k, v = ""] = pair.split("=");
+        const key = decodeURIComponent(k.replace(/\+/g, " "));
+        const value = decodeURIComponent(v.replace(/\+/g, " "));
+        if (key in out) out[key] = [].concat(out[key], value);
+        else out[key] = value;
+      }
+      return out;
+    }
+    ```
+
+- id: js-deep-merge
+  category: small_function
+  thinking: off
+  check: js_tests
+  entry: deepMerge
+  notes: The result must share no nested object with the inputs; undefined is ignored, null replaces; arrays replace.
+  prompt: |
+    Write a JavaScript function `deepMerge(base, override)` used to merge service
+    configuration objects:
+    - Return a new object. Never modify `base` or `override`, and the result must not share
+      any nested object or array with them (changing the result must never change the inputs).
+    - For each key in `override`: if both values are plain objects (not arrays, not null),
+      merge them recursively; otherwise the `override` value replaces the base value
+      (arrays are replaced, not concatenated).
+    - An `undefined` value in `override` is ignored (the base value is kept); `null` does replace.
+    - Keys that exist only in `base` are kept.
+
+    Reply with one ```javascript code block containing the complete code.
+    Keep any explanation short and put it after the code block.
+  tests: |
+    const base = { db: { host: "localhost", port: 5432, pool: { min: 1, max: 5 } }, tags: ["a"], debug: false };
+    const over = { db: { port: 6543, pool: { max: 20 } }, tags: ["b", "c"], debug: undefined, region: null };
+    const baseCopy = structuredClone(base);
+    const overCopy = { db: { port: 6543, pool: { max: 20 } }, tags: ["b", "c"], debug: undefined, region: null };
+    const merged = deepMerge(base, over);
+    const plain = (v) => JSON.parse(JSON.stringify(v));  // prototype-agnostic (Object.create(null) is fine)
+    assert.deepStrictEqual(plain(merged), {
+      db: { host: "localhost", port: 6543, pool: { min: 1, max: 20 } },
+      tags: ["b", "c"], debug: false, region: null,
+    });
+    assert.deepStrictEqual(base, baseCopy);
+    assert.deepStrictEqual(over, overCopy);
+    merged.db.pool.min = 99;
+    merged.tags.push("z");
+    assert.strictEqual(base.db.pool.min, 1);
+    assert.deepStrictEqual(over.tags, ["b", "c"]);
+    const onlyBase = { x: { y: 1 } };
+    deepMerge(onlyBase, {}).x.y = 2;
+    assert.strictEqual(onlyBase.x.y, 1, "result shares a nested object with base");
+    assert.deepStrictEqual(deepMerge({ a: { b: 1 } }, { a: 5 }), { a: 5 });
+    assert.deepStrictEqual(deepMerge({ a: 5 }, { a: { b: 1 } }), { a: { b: 1 } });
+  reference: |
+    ```javascript
+    const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
+    function clone(v) {
+      if (Array.isArray(v)) return v.map(clone);
+      if (isPlainObject(v)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, clone(x)]));
+      return v;
+    }
+
+    function deepMerge(base, override) {
+      const out = clone(base);
+      for (const [key, value] of Object.entries(override)) {
+        if (value === undefined) continue;
+        out[key] = isPlainObject(value) && isPlainObject(out[key]) ? deepMerge(out[key], value) : clone(value);
+      }
+      return out;
+    }
+    ```
+  wrong: |
+    ```javascript
+    function deepMerge(base, override) {
+      const out = { ...base };
+      for (const [key, value] of Object.entries(override)) {
+        if (value === undefined) continue;
+        const both = value && typeof value === "object" && !Array.isArray(value)
+          && out[key] && typeof out[key] === "object" && !Array.isArray(out[key]);
+        out[key] = both ? deepMerge(out[key], value) : value;
+      }
+      return out;
+    }
+    ```
+
+- id: cpp-parse-duration
+  category: small_function
+  thinking: off
+  check: cpp_tests
+  entry: parse_duration
+  notes: Units must appear in h, m, s order and at most once; any stray character means -1.
+  prompt: |
+    Write a C++17 function
+
+        long long parse_duration(const std::string& s);
+
+    for a job scheduler's config file. The input is a duration such as `1h30m`, `45s`, `2h`
+    or `1h0m5s`: one or more parts, each a whole number (digits only) followed by a unit
+    `h`, `m` or `s`. Units must appear in the order h, m, s, each at most once, with no
+    spaces. Return the total number of seconds. For any invalid input (empty string,
+    unknown unit, number without a unit, unit without a number, wrong order, repeated unit,
+    spaces, signs) return -1. Numbers will not overflow.
+
+    Reply with one ```cpp code block containing the function and the #include lines it
+    needs, WITHOUT a main function. Keep any explanation short and put it after the block.
+  tests: |
+    #include <cstdio>
+    #define CHECK(x) do { if (!(x)) { std::fprintf(stderr, "FAILED line %d: %s\n", __LINE__, #x); return 1; } } while (0)
+    int main() {
+        CHECK(parse_duration("1h30m") == 5400);
+        CHECK(parse_duration("45s") == 45);
+        CHECK(parse_duration("2h") == 7200);
+        CHECK(parse_duration("1h0m5s") == 3605);
+        CHECK(parse_duration("90m") == 5400);
+        CHECK(parse_duration("") == -1);
+        CHECK(parse_duration("10") == -1);
+        CHECK(parse_duration("h") == -1);
+        CHECK(parse_duration("5m1h") == -1);
+        CHECK(parse_duration("1h1h") == -1);
+        CHECK(parse_duration("1d") == -1);
+        CHECK(parse_duration("1h 30m") == -1);
+        CHECK(parse_duration("-5s") == -1);
+        return 0;
+    }
+  reference: |
+    ```cpp
+    #include <cctype>
+    #include <string>
+
+    long long parse_duration(const std::string& s) {
+        if (s.empty()) return -1;
+        const std::string units = "hms";
+        const long long factor[] = {3600, 60, 1};
+        long long total = 0;
+        std::size_t i = 0;
+        std::size_t next_unit = 0;  // first unit still allowed
+        while (i < s.size()) {
+            std::size_t start = i;
+            long long n = 0;
+            while (i < s.size() && std::isdigit(static_cast<unsigned char>(s[i]))) {
+                n = n * 10 + (s[i] - '0');
+                ++i;
+            }
+            if (i == start || i == s.size()) return -1;
+            std::size_t u = units.find(s[i]);
+            if (u == std::string::npos || u < next_unit) return -1;
+            total += n * factor[u];
+            next_unit = u + 1;
+            ++i;
+        }
+        return total;
+    }
+
+    int main() { return parse_duration("1h") == 3600 ? 0 : 1; }
+    ```
+  wrong: |
+    ```cpp
+    #include <cctype>
+    #include <string>
+
+    long long parse_duration(const std::string& s) {
+        if (s.empty()) return -1;
+        long long total = 0, n = 0;
+        bool digits = false;
+        for (char c : s) {
+            if (std::isdigit(static_cast<unsigned char>(c))) { n = n * 10 + (c - '0'); digits = true; continue; }
+            if (!digits) return -1;
+            if (c == 'h') total += n * 3600;
+            else if (c == 'm') total += n * 60;
+            else if (c == 's') total += n;
+            else return -1;
+            n = 0; digits = false;
+        }
+        return digits ? -1 : total;
+    }
+    ```
+
+# =====================================================================  bug_finding
+
+- id: bug-py-paginate
+  category: bug_finding
+  thinking: both
+  check: python_tests
+  entry: Paginator
+  notes: page_count floors instead of rounding up, so the last partial page is unreachable.
+  prompt: |
+    This Python module has exactly one bug. Find it and fix it.
+
+    ```python
+    from dataclasses import dataclass
+
+
+    @dataclass
+    class Page:
+        number: int
+        items: list
+        has_next: bool
+
+
+    class Paginator:
+        """Splits a list of search results into 1-based pages."""
+
+        def __init__(self, items: list, page_size: int):
+            if page_size < 1:
+                raise ValueError("page_size must be >= 1")
+            self.items = items
+            self.page_size = page_size
+
+        @property
+        def page_count(self) -> int:
+            return len(self.items) // self.page_size
+
+        def get_page(self, number: int) -> Page:
+            if number < 1 or number > max(self.page_count, 1):
+                raise ValueError(f"page {number} out of range")
+            start = (number - 1) * self.page_size
+            end = start + self.page_size
+            return Page(
+                number=number,
+                items=self.items[start:end],
+                has_next=number < self.page_count,
+            )
+    ```
+
+    Reply with the complete fixed module in one ```python code block, then explain the bug
+    in one sentence.
+  tests: |
+    p = Paginator(list(range(10)), 3)
+    assert p.page_count == 4
+    assert p.get_page(1).items == [0, 1, 2]
+    assert p.get_page(4).items == [9]
+    assert p.get_page(4).has_next is False
+    assert p.get_page(3).has_next is True
+    assert Paginator(list(range(9)), 3).page_count == 3
+    assert Paginator([], 5).page_count == 0
+    assert Paginator([], 5).get_page(1).items == []
+    try:
+        p.get_page(5)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("page 5 of 4 should raise")
+  reference: |
+    ```python
+    from dataclasses import dataclass
+
+
+    @dataclass
+    class Page:
+        number: int
+        items: list
+        has_next: bool
+
+
+    class Paginator:
+        def __init__(self, items: list, page_size: int):
+            if page_size < 1:
+                raise ValueError("page_size must be >= 1")
+            self.items = items
+            self.page_size = page_size
+
+        @property
+        def page_count(self) -> int:
+            return -(-len(self.items) // self.page_size)
+
+        def get_page(self, number: int) -> Page:
+            if number < 1 or number > max(self.page_count, 1):
+                raise ValueError(f"page {number} out of range")
+            start = (number - 1) * self.page_size
+            return Page(number, self.items[start:start + self.page_size], number < self.page_count)
+    ```
+    `page_count` rounded down, so a last partial page was lost; it must round up.
+  wrong: |
+    ```python
+    from dataclasses import dataclass
+
+
+    @dataclass
+    class Page:
+        number: int
+        items: list
+        has_next: bool
+
+
+    class Paginator:
+        def __init__(self, items: list, page_size: int):
+            self.items = items
+            self.page_size = page_size
+
+        @property
+        def page_count(self) -> int:
+            return len(self.items) // self.page_size
+
+        def get_page(self, number: int) -> Page:
+            if number < 1 or number > max(self.page_count, 1):
+                raise ValueError(f"page {number} out of range")
+            start = (number - 1) * self.page_size
+            return Page(number, self.items[start:start + self.page_size], number < self.page_count)
+    ```
+
+- id: bug-py-split-pence
+  category: bug_finding
+  thinking: both
+  check: python_tests
+  entry: split_pence
+  notes: range(remainder - 1) drops one penny whenever the bill does not divide evenly.
+  prompt: |
+    This function from a bill-splitting service has exactly one bug. Find it and fix it.
+
+    ```python
+    def split_pence(total_pence: int, people: int) -> list[int]:
+        """Split a bill between people. Shares differ by at most 1 penny,
+        larger shares come first, and the shares always add up to total_pence."""
+        if people < 1:
+            raise ValueError("people must be >= 1")
+        if total_pence < 0:
+            raise ValueError("total_pence must be >= 0")
+        share, remainder = divmod(total_pence, people)
+        shares = [share] * people
+        for i in range(remainder - 1):
+            shares[i] += 1
+        return shares
+    ```
+
+    Reply with the complete fixed function in one ```python code block, then explain the
+    bug in one sentence.
+  tests: |
+    assert split_pence(1000, 3) == [334, 333, 333]
+    assert split_pence(1001, 3) == [334, 334, 333]
+    assert split_pence(900, 3) == [300, 300, 300]
+    assert split_pence(5, 8) == [1, 1, 1, 1, 1, 0, 0, 0]
+    assert split_pence(0, 2) == [0, 0]
+    assert split_pence(7, 1) == [7]
+    for t, n in [(12345, 7), (1, 2), (99, 10)]:
+        s = split_pence(t, n)
+        assert sum(s) == t and max(s) - min(s) <= 1 and s == sorted(s, reverse=True), (t, n, s)
+  reference: |
+    ```python
+    def split_pence(total_pence: int, people: int) -> list[int]:
+        if people < 1:
+            raise ValueError("people must be >= 1")
+        if total_pence < 0:
+            raise ValueError("total_pence must be >= 0")
+        share, remainder = divmod(total_pence, people)
+        shares = [share] * people
+        for i in range(remainder):
+            shares[i] += 1
+        return shares
+    ```
+    The loop added the leftover pennies one time too few, so the shares did not add up.
+  wrong: |
+    ```python
+    def split_pence(total_pence, people):
+        share, remainder = divmod(total_pence, people)
+        shares = [share] * people
+        for i in range(remainder - 1):
+            shares[i] += 1
+        return shares
+    ```
+
+- id: bug-js-top-scores
+  category: bug_finding
+  thinking: both
+  check: js_tests
+  entry: topScores
+  notes: Array.prototype.sort() with no comparator sorts numbers as strings.
+  prompt: |
+    This JavaScript function should return the `n` highest scores of active players,
+    highest first. It has exactly one bug. Find it and fix it.
+
+    ```javascript
+    // Leaderboard helper for a quiz service.
+    function topScores(players, n) {
+      const scores = players
+        .filter((p) => p.active)
+        .map((p) => p.score);
+      scores.sort();
+      scores.reverse();
+      return scores.slice(0, n);
+    }
+    ```
+
+    Reply with the complete fixed function in one ```javascript code block, then explain
+    the bug in one sentence.
+  tests: |
+    const players = [
+      { name: "ana", score: 9, active: true },
+      { name: "bo", score: 100, active: true },
+      { name: "cy", score: 25, active: true },
+      { name: "di", score: 1000, active: false },
+      { name: "ed", score: 30, active: true },
+    ];
+    const copy = structuredClone(players);
+    assert.deepStrictEqual(topScores(players, 2), [100, 30]);
+    assert.deepStrictEqual(topScores(players, 10), [100, 30, 25, 9]);
+    assert.deepStrictEqual(topScores([], 3), []);
+    assert.deepStrictEqual(players, copy);
+  reference: |
+    ```javascript
+    function topScores(players, n) {
+      return players
+        .filter((p) => p.active)
+        .map((p) => p.score)
+        .sort((a, b) => b - a)
+        .slice(0, n);
+    }
+    ```
+    `sort()` without a comparator compares numbers as strings, so 100 sorted before 25.
+  wrong: |
+    ```javascript
+    function topScores(players, n) {
+      const scores = players.filter((p) => p.active).map((p) => p.score);
+      scores.sort();
+      scores.reverse();
+      return scores.slice(0, n);
+    }
+    ```
+
+- id: bug-sql-left-join
+  category: bug_finding
+  thinking: both
+  check: sql_result
+  fixture: shop
+  ordered: true
+  expected_sql: |
+    SELECT c.name, COUNT(o.id) AS paid_orders
+    FROM customers c
+    LEFT JOIN orders o
+      ON o.customer_id = c.id AND o.status = 'paid'
+     AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01'
+    WHERE c.city = 'Leeds'
+    GROUP BY c.id, c.name
+    ORDER BY c.name
+  notes: Needs a LEFT JOIN with the order filters moved into ON; a LEFT JOIN that keeps them in WHERE still drops Gus.
+  prompt: |
+    Given this SQLite schema:
+
+    ```sql
+    {{ddl}}
+    ```
+
+    This query should list every customer in Leeds with the number of 'paid' orders they
+    placed in 2025, showing 0 for customers with none, ordered by name. It has a bug.
+
+    ```sql
+    SELECT c.name, COUNT(o.id) AS paid_orders
+    FROM customers c
+    JOIN orders o ON o.customer_id = c.id
+    WHERE c.city = 'Leeds'
+      AND o.status = 'paid'
+      AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01'
+    GROUP BY c.name
+    ORDER BY c.name;
+    ```
+
+    Reply with the fixed query in one ```sql code block, then explain the bug in one sentence.
+  reference: |
+    ```sql
+    SELECT c.name, COUNT(o.id) AS paid_orders
+    FROM customers c
+    LEFT JOIN orders o
+      ON o.customer_id = c.id
+     AND o.status = 'paid'
+     AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+    WHERE c.city = 'Leeds'
+    GROUP BY c.id, c.name
+    ORDER BY c.name;
+    ```
+    The inner join dropped Leeds customers with no matching orders.
+  wrong: |
+    ```sql
+    SELECT c.name, COUNT(o.id) AS paid_orders
+    FROM customers c
+    LEFT JOIN orders o ON o.customer_id = c.id
+    WHERE c.city = 'Leeds'
+      AND o.status = 'paid'
+      AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01'
+    GROUP BY c.name
+    ORDER BY c.name;
+    ```
+
+# =====================================================================  sql_regex
+
+- id: sql-top-customers
+  category: sql_regex
+  thinking: off
+  check: sql_result
+  fixture: shop
+  ordered: true
+  expected_sql: |
+    SELECT c.name, SUM(o.total_pence) AS spend_pence
+    FROM customers c JOIN orders o ON o.customer_id = c.id
+    WHERE o.status = 'paid' AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01'
+    GROUP BY c.id, c.name
+    ORDER BY spend_pence DESC, c.name ASC
+    LIMIT 3
+  notes: Traps are refunded/cancelled orders, orders on 2024-12-31 and 2026-01-01, and the tie at 9000 (Ben before Chloe).
+  prompt: |
+    Given this SQLite schema:
+
+    ```sql
+    {{ddl}}
+    ```
+
+    Write one SQLite query that returns the top 3 customers by total spend in the calendar
+    year 2025, counting only orders with status 'paid'. Return two columns: `name` and
+    `spend_pence`. Order by `spend_pence` descending, then by `name` ascending.
+
+    Reply with the query in one ```sql code block.
+  reference: |
+    ```sql
+    SELECT c.name, SUM(o.total_pence) AS spend_pence
+    FROM orders o
+    JOIN customers c ON c.id = o.customer_id
+    WHERE o.status = 'paid' AND strftime('%Y', o.order_date) = '2025'
+    GROUP BY c.id
+    ORDER BY spend_pence DESC, c.name
+    LIMIT 3;
+    ```
+  wrong: |
+    ```sql
+    SELECT c.name, SUM(o.total_pence) AS spend_pence
+    FROM orders o JOIN customers c ON c.id = o.customer_id
+    WHERE strftime('%Y', o.order_date) = '2025'
+    GROUP BY c.id ORDER BY spend_pence DESC, c.name LIMIT 3;
+    ```
+
+- id: sql-monthly-running-total
+  category: sql_regex
+  thinking: off
+  check: sql_result
+  fixture: shop
+  ordered: true
+  expected_sql: |
+    SELECT month, revenue_pence,
+           SUM(revenue_pence) OVER (ORDER BY month) AS running_total_pence
+    FROM (
+      SELECT substr(order_date, 1, 7) AS month, SUM(total_pence) AS revenue_pence
+      FROM orders
+      WHERE status = 'paid' AND order_date >= '2025-01-01' AND order_date < '2026-01-01'
+      GROUP BY month
+    )
+    ORDER BY month
+  notes: Needs a window function (or a correlated subquery) over monthly totals, limited to 2025.
+  prompt: |
+    Given this SQLite schema:
+
+    ```sql
+    {{ddl}}
+    ```
+
+    Write one SQLite query that shows monthly revenue from 'paid' orders in 2025, with a
+    running total. Return three columns: `month` (text 'YYYY-MM'), `revenue_pence` (that
+    month's total) and `running_total_pence` (sum of all months up to and including this
+    one). Include only months that have at least one paid order. Order by month.
+
+    Reply with the query in one ```sql code block.
+  reference: |
+    ```sql
+    WITH monthly AS (
+      SELECT strftime('%Y-%m', order_date) AS month, SUM(total_pence) AS revenue_pence
+      FROM orders
+      WHERE status = 'paid' AND order_date BETWEEN '2025-01-01' AND '2025-12-31'
+      GROUP BY 1
+    )
+    SELECT month, revenue_pence,
+           SUM(revenue_pence) OVER (ORDER BY month ROWS UNBOUNDED PRECEDING) AS running_total_pence
+    FROM monthly
+    ORDER BY month;
+    ```
+  wrong: |
+    ```sql
+    WITH monthly AS (
+      SELECT strftime('%Y-%m', order_date) AS month, SUM(total_pence) AS revenue_pence
+      FROM orders WHERE status = 'paid' GROUP BY 1
+    )
+    SELECT month, revenue_pence, SUM(revenue_pence) OVER (ORDER BY month) AS running_total_pence
+    FROM monthly ORDER BY month;
+    ```
+
+- id: sql-latest-status
+  category: sql_regex
+  thinking: off
+  check: sql_result
+  fixture: shop
+  ordered: true
+  expected_sql: |
+    SELECT e.order_id, e.status, e.event_time
+    FROM shipment_events e
+    WHERE e.event_time = (SELECT MAX(e2.event_time) FROM shipment_events e2 WHERE e2.order_id = e.order_id)
+    ORDER BY e.order_id
+  notes: Latest by event_time, not by id; events for orders 5 and 10 were inserted out of time order.
+  prompt: |
+    Given this SQLite schema:
+
+    ```sql
+    {{ddl}}
+    ```
+
+    Write one SQLite query that returns, for every order that has shipment events, its most
+    recent event (latest `event_time`). Return three columns: `order_id`, `status` and
+    `event_time`. Order by `order_id`.
+
+    Reply with the query in one ```sql code block.
+  reference: |
+    ```sql
+    SELECT order_id, status, event_time
+    FROM (
+      SELECT order_id, status, event_time,
+             ROW_NUMBER() OVER (PARTITION BY order_id ORDER BY event_time DESC) AS rn
+      FROM shipment_events
+    )
+    WHERE rn = 1
+    ORDER BY order_id;
+    ```
+  wrong: |
+    ```sql
+    SELECT e.order_id, e.status, e.event_time
+    FROM shipment_events e
+    WHERE e.id = (SELECT MAX(id) FROM shipment_events e2 WHERE e2.order_id = e.order_id)
+    ORDER BY e.order_id;
+    ```
+
+- id: py-regex-log-line
+  category: sql_regex
+  thinking: off
+  check: python_tests
+  entry: LOG_RE
+  notes: The service name is lowercase only; the timestamp needs the literal T and Z; the message must not be empty.
+  prompt: |
+    Our services write log lines like this:
+
+        2025-01-31T23:59:07Z ERROR [payment-api] Card declined for order 81234
+
+    Write a Python module-level constant `LOG_RE`, made with `re.compile(...)`, meant to be
+    used as `LOG_RE.fullmatch(line)`. It must have these named groups:
+    - `ts`: the timestamp, exactly in the form `YYYY-MM-DDTHH:MM:SSZ`
+    - `level`: one of `DEBUG`, `INFO`, `WARN`, `ERROR`
+    - `service`: lowercase letters, digits and hyphens, written inside square brackets
+      (the brackets are not part of the group)
+    - `msg`: the rest of the line; it must not be empty
+    The four parts are separated by single spaces. Lines in any other shape must not match.
+
+    Reply with one ```python code block containing the import and the constant.
+    Keep any explanation short and put it after the code block.
+  tests: |
+    m = LOG_RE.fullmatch("2025-01-31T23:59:07Z ERROR [payment-api] Card declined for order 81234")
+    assert m and m["ts"] == "2025-01-31T23:59:07Z" and m["level"] == "ERROR"
+    assert m["service"] == "payment-api" and m["msg"] == "Card declined for order 81234"
+    assert LOG_RE.fullmatch("2025-02-01T00:00:00Z INFO [ledger2] started")["service"] == "ledger2"
+    for bad in [
+        "2025-01-31 23:59:07Z ERROR [payment-api] x",
+        "2025-01-31T23:59:07Z FATAL [payment-api] x",
+        "2025-01-31T23:59:07Z ERROR [Payment-API] x",
+        "2025-01-31T23:59:07Z ERROR payment-api x",
+        "2025-01-31T23:59:07Z ERROR [payment-api]",
+        "2025-01-31T23:59:07 ERROR [payment-api] x",
+    ]:
+        assert LOG_RE.fullmatch(bad) is None, bad
+  reference: |
+    ```python
+    import re
+
+    LOG_RE = re.compile(
+        r"(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z) "
+        r"(?P<level>DEBUG|INFO|WARN|ERROR) "
+        r"\[(?P<service>[a-z0-9-]+)\] "
+        r"(?P<msg>.+)"
+    )
+    ```
+  wrong: |
+    ```python
+    import re
+    LOG_RE = re.compile(r"(?P<ts>\S+) (?P<level>DEBUG|INFO|WARN|ERROR) \[(?P<service>[\w-]+)\] (?P<msg>.+)")
+    ```
+
+# =====================================================================  explain_code
+
+- id: explain-js-event-loop
+  category: explain_code
+  lang: js
+  thinking: both
+  check: regex
+  patterns: ['^\W*A\W+E\W+G\W+C\W+D\W+F\W+B\W*$']
+  notes: Sync code first (A E G), then microtasks in queue order (C D F), then the timer (B). Verified with Node 24.
+  prompt: |
+    In what order does this Node.js script print its letters?
+
+    ```javascript
+    console.log("A");
+    setTimeout(() => console.log("B"), 0);
+    Promise.resolve().then(() => console.log("C"));
+    queueMicrotask(() => console.log("D"));
+    (async () => {
+      console.log("E");
+      await null;
+      console.log("F");
+    })();
+    console.log("G");
+    ```
+
+    Reply with the seven letters in order on one line, separated by single spaces,
+    and nothing else.
+  reference: |
+    A E G C D F B
+  wrong: |
+    A E G B C D F
+
+- id: explain-py-rate-cache
+  category: explain_code
+  lang: python
+  thinking: off
+  check: manual
+  notes: |
+    Grade PASS if the answer says (1) it caches one rate per currency after a slow call, and
+    (2) names a real problem: the cache never expires so rates go stale, and/or an unknown
+    currency silently returns 1.0 (and gets cached). Unbounded size alone is a weak answer.
+  prompt: |
+    Explain what this Python function does, then name its most important problem.
+    Use at most 4 sentences.
+
+    ```python
+    import functools
+    import time
+
+    @functools.lru_cache(maxsize=None)
+    def get_exchange_rate(currency: str) -> float:
+        time.sleep(0.2)  # stands in for a slow HTTP call to a rates service
+        return {"EUR": 1.17, "USD": 1.27}.get(currency, 1.0)
+    ```
+
+# =====================================================================  maths_logic
+
+- id: math-batch-job
+  category: maths_logic
+  thinking: both
+  check: exact
+  expected: 30
+  extract: 'ANSWER:\s*(.+)'
+  prompt: |
+    A batch job processes 1,200 records per minute for the first 15 minutes, then slows down
+    to 800 records per minute. How many minutes in total does it take to process 30,000 records?
+
+    Show brief working, then give the final answer alone on the last line as `ANSWER: <number>`.
+  reference: |
+    15 min x 1,200 = 18,000; the other 12,000 take 12,000 / 800 = 15 min.
+    ANSWER: 30
+  wrong: |
+    30,000 / 1,000 average = 30... no, 37.5
+    ANSWER: 37.5
+
+- id: math-sla-downtime
+  category: maths_logic
+  thinking: both
+  check: exact
+  expected: 43
+  extract: 'ANSWER:\s*(.+)'
+  notes: 43.2 minutes are allowed, so 43 whole minutes; 44 would breach the SLO.
+  prompt: |
+    A service has a 99.9% monthly availability target. In a 30-day month, what is the
+    largest whole number of minutes of downtime that still meets the target?
+
+    Show brief working, then give the final answer alone on the last line as `ANSWER: <number>`.
+  reference: |
+    30 x 24 x 60 = 43,200 minutes; 0.1% of that is 43.2, so at most 43 whole minutes.
+    ANSWER: 43
+  wrong: |
+    ANSWER: 44
+
+- id: math-pin-count
+  category: maths_logic
+  thinking: both
+  check: exact
+  expected: 4536
+  extract: 'ANSWER:\s*(.+)'
+  prompt: |
+    How many 4-digit PIN codes have four different digits and do not start with 0?
+
+    Show brief working, then give the final answer alone on the last line as `ANSWER: <number>`.
+  reference: |
+    9 choices for the first digit, then 9, 8 and 7: 9 x 9 x 8 x 7 = 4,536.
+    ANSWER: 4,536
+  wrong: |
+    10 x 9 x 8 x 7 = 5040
+    ANSWER: 5040
+
+# =====================================================================  instruction_following
+
+- id: if-three-bullets
+  category: instruction_following
+  thinking: off
+  check: regex
+  fullmatch: true
+  patterns: ['- [^\n]+\n- [^\n]+\n- [^\n]+']
+  not_patterns: ['[A-Za-z]{9,}']
+  prompt: |
+    Give exactly 3 bullet points on why code review matters. Rules:
+    - each bullet starts with "- " (a hyphen and a space) and is one line;
+    - no word in your answer may be longer than 8 letters;
+    - write nothing before or after the three bullets.
+  reference: |
+    - Finds bugs early
+    - Shares know-how
+    - Keeps code clean
+  wrong: |
+    Here are three reasons:
+    - Finds bugs early
+    - Improves maintainability
+    - Keeps code clean
+
+- id: if-json-extract
+  category: instruction_following
+  thinking: off
+  check: json_match
+  expected: {name: ledger-api, port: 8443, public: false, owner: payments, dependencies: [kafka, postgres]}
+  notes: The whole reply must be bare JSON (no code fence); dependencies sorted; port a number; public a boolean.
+  prompt: |
+    Extract a JSON object from this text:
+
+    "The ledger-api service listens on port 8443, is internal-only (not public), and is owned
+    by the payments team. Its dependencies are postgres and kafka."
+
+    Keys: `name` (string), `port` (integer), `public` (boolean), `owner` (the team name as one
+    word), `dependencies` (array of strings in alphabetical order).
+    Reply with only the JSON object: no code fence and no other text.
+  reference: |
+    {"name": "ledger-api", "port": 8443, "public": false, "owner": "payments", "dependencies": ["kafka", "postgres"]}
+  wrong: |
+    ```json
+    {"name": "ledger-api", "port": 8443, "public": false, "owner": "payments", "dependencies": ["kafka", "postgres"]}
+    ```
+
+- id: if-one-sentence
+  category: instruction_following
+  thinking: off
+  check: regex
+  fullmatch: true
+  patterns: ['[^.!?\n]+\.', '(?:\S+\s+){0,19}\S+']
+  notes: Exactly one sentence, at most 20 words, ending with a full stop, nothing else.
+  prompt: |
+    Describe what a load balancer does in exactly one sentence of at most 20 words.
+    The sentence must end with a full stop. Write nothing else.
+  reference: |
+    A load balancer spreads incoming requests across several servers so no single server is overloaded.
+  wrong: |
+    A load balancer spreads incoming requests across several servers. This keeps any one server from being overloaded.
+
+# =====================================================================  summarise
+
+- id: sum-incident
+  category: summarise
+  thinking: off
+  check: contains
+  include: [[pool], [roll], ["37", "14:42"]]
+  notes: Key facts are the cause (connection pool cut from 50 to 5 in 2.14.0), the fix (rollback) and the impact (14:05-14:42, 37 minutes).
+  prompt: |
+    Summarise this incident report for a public status page in at most 3 sentences.
+    Include the cause, the fix, and how long customers were affected.
+
+    "At 14:05 on 3 March the checkout-api started returning HTTP 502 errors for about 40% of
+    requests. The on-call engineer saw that release 2.14.0, deployed at 13:58, had changed the
+    database connection pool size from 50 to 5. Latency rose first, then the load balancer began
+    failing health checks. At 14:31 the team rolled back to 2.13.2, and errors stopped by 14:42.
+    No payments were lost, but around 1,900 customers saw an error page. Follow-up actions: add a
+    config check to the deployment pipeline and alert on connection pool saturation."
+  reference: |
+    From 14:05 to 14:42 on 3 March (37 minutes) some checkout requests failed because release
+    2.14.0 cut the database connection pool from 50 to 5. We rolled back to 2.13.2, which fixed it.
+    No payments were lost.
+  wrong: |
+    Release 2.14.0 changed the connection pool size and caused errors. The team rolled back.
+
+- id: sum-release-notes
+  category: summarise
+  thinking: off
+  check: contains
+  include: [[connect_legacy], [timeout], ["3.10", "3.12"]]
+  exclude: [retry_jitter, memory leak, error message]
+  notes: Three breaking changes only; the three non-breaking items must not be listed.
+  prompt: |
+    Here are the release notes for version 3.0 of an internal HTTP library. List ONLY the
+    breaking changes, as a short bulleted list. Leave out everything that is not breaking.
+
+    - Added a `retry_jitter` option to the HTTP client.
+    - Removed the deprecated `connect_legacy()` function.
+    - `timeout` is now given in seconds instead of milliseconds.
+    - Improved error messages for invalid config files.
+    - Python 3.10 is no longer supported; the minimum version is now 3.12.
+    - Fixed a memory leak in the connection pool.
+  reference: |
+    - `connect_legacy()` was removed.
+    - `timeout` is now in seconds, not milliseconds.
+    - Python 3.12 or newer is required (3.10 support dropped).
+  wrong: |
+    - `connect_legacy()` was removed.
+    - `timeout` is now in seconds, not milliseconds.
+    - Python 3.12 or newer is required.
+    - New `retry_jitter` option.

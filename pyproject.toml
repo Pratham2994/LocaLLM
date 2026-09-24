@@ -1,0 +1,21 @@
+[project]
+name = "lab"
+version = "0.1.0"
+description = "Local LLM test harness: correct answers per hour on my own tasks, via llama-server"
+readme = "README.md"
+authors = [
+    { name = "Pratham2994", email = "prathampanchal02994@gmail.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib>=3.11.2",
+    "pyyaml>=6.0.3",
+    "requests>=2.34.2",
+]
+
+[project.scripts]
+lab = "lab:main"
+
+[build-system]
+requires = ["uv_build>=0.12.13,<0.13.0"]
+build-backend = "uv_build"

@@ -1,0 +1,9 @@
+name: qwen35-4b-q4km-vulkan-nothink
+model: Qwen3.5-4B-Q4_K_M.gguf       # bare file name: found via model_dirs in the machine file
+backend: vulkan                     # key in the machine file
+ctx: 16384
+kv_cache: f16                       # or q8_0 / q4_0 -> adds -ctk/-ctv
+thinking: false
+sampling: qwen35-nothink-general    # preset name (configs/presets/sampling.yaml) or inline values
+repeats: 3
+max_tokens: 4096

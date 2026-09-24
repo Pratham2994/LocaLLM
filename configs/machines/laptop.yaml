@@ -1,0 +1,29 @@
+# Facts about ONE machine. Experiment configs (configs/*.yaml) stay the same on every machine;
+# only this file differs. The harness picks the file whose `hostname` matches this computer
+# (override with `lab run --machine <file-stem>`).
+hostname: Silver-Nova
+notes: ASUS Zenbook 14, Core Ultra 5 225H, Arc 130T iGPU, 16 GB shared RAM (see LOCAL_LLM_LAB.md section 3.1)
+
+host: 127.0.0.1          # listen on localhost only
+port: 8080
+health_timeout_s: 300    # max wait for the model to load
+
+# Searched (recursively) when a config gives a bare model file name.
+model_dirs:
+  - D:\Code\Inference\models
+  - C:\Users\prath\.lmstudio\models
+
+backends:
+  vulkan:
+    dir: D:\Code\Inference\llama-vulkan
+    threads: 5           # 9.3/9.4: -t 14 made server prefill 4x slower; -t 5 is the safe value
+    args: ["-ngl", "99"]
+  cpu:
+    dir: D:\Code\Inference\llama-cpu
+    threads: 8           # 9.4: best tg128 at 8 threads
+    args: []
+
+# Programs used to run model-written code in checks.
+tools:
+  node: node
+  cxx: g++

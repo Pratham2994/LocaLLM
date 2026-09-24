@@ -1,0 +1,43 @@
+# --- Python / uv ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyright/
+.coverage
+htmlcov/
+
+# --- Models: never commit weights (GBs). They live in D:\Code\Inference\models or LM Studio's folder ---
+*.gguf
+*.safetensors
+*.bin
+.cache/
+
+# --- Harness output ---
+# Keep the measurements (runs.jsonl, report.md, charts) in git: they travel to the PC.
+# Server logs are large and machine-specific: keep them local only.
+results/logs/
+results/tmp/
+*.log
+
+# --- Secrets ---
+.env
+.env.*
+*.pem
+*.key
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# --- Claude Code (personal settings only; shared .claude/settings.json stays tracked) ---
+.claude/settings.local.json

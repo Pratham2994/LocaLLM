@@ -1,0 +1,9 @@
+name: qwen35-4b-q4km-vulkan-think
+model: Qwen3.5-4B-Q4_K_M.gguf
+backend: vulkan
+ctx: 16384
+kv_cache: f16
+thinking: true                      # runs only tasks marked `thinking: on` or `both`
+sampling: qwen35-think-general
+repeats: 3
+max_tokens: 12288                   # ~14 min at 15 tok/s; stops runaway thinking loops

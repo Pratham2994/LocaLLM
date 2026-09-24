@@ -93,6 +93,31 @@ def cmd_probe(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_needle(args: argparse.Namespace) -> int:
+    from .needle import run_needle
+    machine = load_machine(args.machine)
+    run_needle(load_run_config(Path(args.config), machine), machine, args.sizes, args.depths)
+    return 0
+
+
+def cmd_bench(args: argparse.Namespace) -> int:
+    from .bench import run_bench
+    machine = load_machine(args.machine)
+    for p in _config_paths(args.configs):
+        run_bench(load_run_config(p, machine), machine, args.pp, args.tg, args.depth, args.reps)
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    from .report import build_report
+    path = build_report()
+    text = path.read_text(encoding="utf-8")
+    overview = text.split("## Overview", 1)[1].split("##", 1)[0].strip()
+    print(overview)
+    print(f"\nwrote {path} and charts in {path.parent / 'charts'}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="lab", description="Local LLM test harness (LOCAL_LLM_LAB.md section 7).")
     p.add_argument("--machine", help="machine file stem in configs/machines (default: match hostname)")
@@ -112,6 +137,23 @@ def main(argv: list[str] | None = None) -> int:
     t = sub.add_parser("tasks", help="list tasks")
     t.add_argument("--tasks", nargs="+")
     t.set_defaults(func=cmd_tasks)
+
+    rp = sub.add_parser("report", help="write results/report.md and charts from runs.jsonl")
+    rp.set_defaults(func=cmd_report)
+
+    nd = sub.add_parser("needle", help="needle-in-a-haystack test at several context sizes")
+    nd.add_argument("config")
+    nd.add_argument("--sizes", nargs="+", type=int, default=[4096, 16384, 32768], help="prompt tokens")
+    nd.add_argument("--depths", nargs="+", type=float, default=[0.5], help="needle position, 0 = start, 1 = end")
+    nd.set_defaults(func=cmd_needle)
+
+    bn = sub.add_parser("bench", help="llama-bench with each config's model/backend/threads")
+    bn.add_argument("configs", nargs="*", help="config YAML files (default: all)")
+    bn.add_argument("--pp", default="512", help="prompt sizes, comma-separated (llama-bench -p)")
+    bn.add_argument("--tg", default="128", help="generation sizes (llama-bench -n)")
+    bn.add_argument("--depth", default="0", help="context depths (llama-bench -d)")
+    bn.add_argument("--reps", type=int, default=3)
+    bn.set_defaults(func=cmd_bench)
 
     pr = sub.add_parser("probe", help="start one config's server and print one raw JSON response")
     pr.add_argument("config")

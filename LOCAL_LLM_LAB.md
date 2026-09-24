@@ -600,6 +600,11 @@ uv run lab probe configs\x.yaml           # print one raw JSON response (after a
 
 **Safety guards on the server:** the harness refuses to start if the port is already in use (a leftover server would otherwise be measured), and checks `/props` reports the configured model file.
 
+**Milestones 3-5 (v25):**
+- `uv run lab report` → `results/report.md` + `results/charts/*.png`. Counts only current results (prompt hash matches `tasks.yaml`; newest `config_hash` per config). Sections: overview (pass rate, **correct answers per hour** = passed ÷ hours spent on graded runs, median time per task, median time to first answer, decode tok/s, tokens per run, memory = sum of server buffers, manual pending, cut off), pass rate by category, per-task matrix (✓ / ✗ / `p/n` / M), charts (correct/hour, time per task, pass rate vs file size, 4B quant ladder; thinking-off configs only, because thinking configs run a smaller task set), needle and llama-bench tables.
+- `uv run lab needle <config> --sizes 4096 16384 32768 --depths 0.5`: invented filler text of an exact token length (measured with the server's `/tokenize`), one hidden fact ("Harbour Street vault code 7481-QX") at the given depth, thinking off, `max_tokens` 64; server `-c` = largest size + 1024. Logs found / missed, prompt tokens and prefill time to `results/needle.jsonl`.
+- `uv run lab bench <configs> --pp 512 --tg 128 --depth 0 --reps 3`: runs `llama-bench -o jsonl` with each config's model, backend folder, threads, args and KV type; appends to `results/bench.jsonl` (merged table in the report).
+
 ---
 
 ## 8. Task set guidance

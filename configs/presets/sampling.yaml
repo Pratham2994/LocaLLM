@@ -11,3 +11,10 @@ qwen35-nothink-reasoning: {temperature: 1.0, top_p: 1.0,  top_k: 40, min_p: 0.0,
 # Only for "do two engines give the same answer?" sanity checks. Never for quality tests
 # on thinking models (greedy decoding causes repetition loops).
 greedy-sanity:            {temperature: 0.0, top_p: 1.0,  top_k: 1,  min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+
+# Gemma 4 E4B: values stored in the GGUF itself (general.sampling.*), read 2026-09-24.
+gemma4-card:              {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+
+# Phi-4-mini-instruct: no thinking mode, no sampling in the GGUF; the model card's example uses
+# greedy decoding (temperature 0). Fine here: it is not a thinking model.
+phi4-mini-card:           {temperature: 0.0, top_p: 1.0,  top_k: 40, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}

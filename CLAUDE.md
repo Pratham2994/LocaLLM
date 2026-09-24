@@ -17,7 +17,12 @@ uv run lab run --dry-run             # plan + exact llama-server command, starts
 uv run lab run configs\<name>.yaml   # run (resumable; default = all configs\*.yaml)
 uv run lab run configs\x.yaml --tasks "sql-*" --repeats 1
 uv run lab probe configs\x.yaml      # raw JSON of one request: do this after any llama.cpp update
+uv run lab report                    # results\report.md + results\charts\*.png (correct answers/hour etc.)
+uv run lab needle configs\x.yaml --sizes 4096 16384 32768 --depths 0.1 0.5 0.9
+uv run lab bench configs\x.yaml --pp 512 --tg 128 --depth 0,4096
 ```
+
+While a run is in progress, `uv run` may fail to reinstall `lab.exe` (locked); use `uv run --no-sync ...`.
 
 ## Layout
 
@@ -29,9 +34,9 @@ uv run lab probe configs\x.yaml      # raw JSON of one request: do this after an
   ideally a `wrong` answer (must fail). Run `uv run lab selftest` after editing tasks.
 - `src/lab/`: `config.py` (YAML loading, server command), `server.py` (start/health/log parsing),
   `client.py` (streamed request + timings), `checks.py` (graders + sandbox), `runner.py`
-  (resumable loop), `cli.py`.
-- `results/runs.jsonl`: one line per run, append-only, committed to git. `results/logs/`: server
-  logs, not committed.
+  (resumable loop), `report.py`, `needle.py`, `bench.py`, `cli.py`.
+- `results/runs.jsonl`, `needle.jsonl`, `bench.jsonl`: append-only, committed to git.
+  `results/report.md` + `results/charts/`: generated, committed. `results/logs/`: server logs, not committed.
 
 ## Rules that are easy to break
 

@@ -1,0 +1,9 @@
+name: phi4-mini-q4km-vulkan-nothink
+model: Phi-4-mini-instruct-Q4_K_M.gguf
+backend: vulkan
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: phi4-mini-card
+repeats: 3
+max_tokens: 4096

@@ -1,0 +1,9 @@
+name: qwen35-4b-q8-vulkan-nothink
+model: Qwen3.5-4B-Q8_0.gguf
+backend: vulkan
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general
+repeats: 3
+max_tokens: 4096

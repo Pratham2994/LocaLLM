@@ -1,0 +1,9 @@
+name: qwen35-2b-q4km-vulkan-nothink
+model: Qwen3.5-2B-Q4_K_M.gguf
+backend: vulkan
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general
+repeats: 3
+max_tokens: 4096

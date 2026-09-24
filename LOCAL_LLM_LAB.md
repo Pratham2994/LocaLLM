@@ -1,6 +1,6 @@
 # Local LLM Lab: Master File
 
-> **Version:** 22 · **Last updated:** 2026-09-24 · **Owner:** Pratham
+> **Version:** 23 · **Last updated:** 2026-09-24 · **Owner:** Pratham
 > **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 (harness: milestones 1-2 built and run; 3-5 next)
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
@@ -60,7 +60,8 @@ You are continuing a learning project on running LLMs locally. Rules:
   - [x] API probe: raw JSON of thinking off/on and streaming inspected; fields agreed (9.4a)
   - [x] Milestone 1: `tasks/tasks.yaml`, 24 tasks (Python, JS, SQL, a little C++); `lab selftest` passes
   - [x] Milestone 2: `uv run lab run` (resumable, `results/runs.jsonl`); thinking-off run done (9.4a)
-  - [ ] Verify the thinking-on path end to end (first attempt stopped: laptop low on memory; 9.4a)
+  - [x] Verify the thinking-on path end to end (first attempt stopped: laptop low on memory; second, with apps closed: PASS, all fields correct; 9.4a)
+  - [ ] Full thinking-on set (8 tasks × 1, est. 30+ min; run when the laptop is idle)
   - [ ] Milestone 3: `report.py` (pass rate, correct answers per hour, charts)
   - [ ] Milestone 4: `needle.py` · Milestone 5 (optional): `bench.py`
   - [ ] Pratham: read the task list, add or change tasks (section 8)
@@ -895,6 +896,21 @@ Failures (all checked by hand: real model mistakes, not harness errors):
 
 **Thinking-on run, 2026-09-24 ~20:20: stopped, no results.** `qwen35-4b-q4km-vulkan-think` (8 `both` tasks × 1) was stopped by Claude Code because the laptop was low on memory (4.6 GB free of 15.4 GB afterwards), during the first task (`bug-py-paginate`: 2,827 thinking tokens after 3 min 17 s at 15.0 tok/s, still thinking). No row was saved (a row is written only when a task ends); no `llama-server` was left running. **The harness's thinking-on path is therefore not yet verified end to end** (the thinking-token method itself was verified in the probe above). Cheap check, with other apps closed: `uv run lab run configs\qwen35-4b-q4km-vulkan-think.yaml --tasks math-pin-count --repeats 1`. Note for Phase 5: at ~15 tok/s, thinking tasks can take 3-10+ min each.
 
+**Thinking-on path verified, 2026-09-24** (other apps closed, 8.4 GB RAM free; `math-pin-count` × 1, `qwen35-think-general`):
+
+| Field | Value |
+|---|---|
+| Result | **PASS** (`ANSWER: 4536`), `finish_reason: stop` |
+| `thinking_tokens` / `answer_tokens` / `completion_tokens` | 1,417 / 216 / 1,633 (87% thinking) |
+| `ttft_s` (first thinking token) / `ttfa_s` (first answer token) | **1.2 s / 105.1 s** |
+| Wall time | 120.8 s (thinking off: 32.3 s, also PASS) → **3.7× slower, same correctness** |
+| Decode | 13.6 tok/s (thinking off, same task: 14.3) |
+| Prefill | 53 tokens in 1.18 s |
+
+- All fields are filled as designed; reasoning text (4,187 chars) is saved in `reasoning`.
+- `ttfa_s` is the number that matters with thinking on: the reader waits 1 min 45 s for the first word of the answer.
+- **Weakens the batch-size hypothesis above:** the same question with thinking on (53-token prompt) prefilled in 1.18 s, vs 3.95 s for the 55-token thinking-off prompt. The slow case may have been a one-off stall; the `llama-bench` test will decide.
+
 Observations:
 - **Explaining a bug ≠ fixing it** (two cases above). Only running the code or query shows it; eyeballing the explanation would have marked both correct.
 - Short tasks are dominated by fixed costs: `if-*` tasks take 2-3 s, of which ~1.3 s is time to first token.
@@ -1123,3 +1139,4 @@ Claude/GPT also generate one token at a time (plus internal planning). Differenc
 | 2026-09-24 | Claude (chat) | v20: size ladder on both engines: decode tie CPU vs Vulkan, prefill Vulkan 2.5-5x; Gemma 4 E4B = 7.5B params at 4B speed; Bonsai 27B v1 7.4 tok/s (compute-bound); estimates corrected |
 | 2026-09-24 | Claude (chat) | v21: depth test (−5% at 4K, −15% at 16K, matches KV maths); Phase 3 complete; Phase 4 next |
 | 2026-09-24 | Claude Code | v22: Phase 4 milestones 1-2 built. API probe (fields in 9.4a); `lab` CLI (run / selftest / tasks / probe); machine files + presets; 24 tasks (Python, JS, SQL, a little C++) with reference + wrong answers; sandboxed checks; first real runs (thinking off 17/23, 136 correct/hour); Smart App Control found to block some compiled C++ test programs (handled as "not graded"); open question on Vulkan prefill at odd batch sizes; `CLAUDE.md` imports this file; `.gitignore` |
+| 2026-09-24 | Claude Code | v23: first thinking-on run stopped (laptop low on memory, nothing saved); rerun with apps closed verified the thinking path end to end (`math-pin-count`: PASS, 1,417 thinking tokens, first answer token at 105 s, 3.7× slower than thinking off); batch-size hypothesis weakened |

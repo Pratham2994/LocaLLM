@@ -1,6 +1,6 @@
 # Local LLM Lab: Master File
 
-> **Version:** 24 · **Last updated:** 2026-09-24 · **Owner:** Pratham
+> **Version:** 25 · **Last updated:** 2026-09-24 · **Owner:** Pratham
 > **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 (harness: milestones 1-2 built and run; 3-5 next)
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
@@ -62,8 +62,9 @@ You are continuing a learning project on running LLMs locally. Rules:
   - [x] Milestone 2: `uv run lab run` (resumable, `results/runs.jsonl`); thinking-off run done (9.4a)
   - [x] Verify the thinking-on path end to end (first attempt stopped: laptop low on memory; second, with apps closed: PASS, all fields correct; 9.4a)
   - [x] Full thinking-on set (8 tasks × 1): 7/8 in 36.4 min vs thinking off 5/8 in 2.3 min (9.4a)
-  - [ ] Milestone 3: `report.py` (pass rate, correct answers per hour, charts)
-  - [ ] Milestone 4: `needle.py` · Milestone 5 (optional): `bench.py`
+  - [x] Milestone 3: `uv run lab report` (tested on real results)
+  - [ ] Milestone 4 `lab needle` and 5 `lab bench`: **built, not yet run** (GPU was busy). Test: `uv run lab needle configs\qwen35-4b-q4km-vulkan-nothink.yaml` and `uv run lab bench configs\qwen35-4b-q4km-vulkan-nothink.yaml --pp 48,50,51,52,56,64 --tg 0` (also answers the batch-size question in 9.4a)
+  - [x] Model comparison, 6 models, thinking off (9.4b); Qwen3.5-4B Q8_0 unfinished
   - [ ] Pratham: read the task list, add or change tasks (section 8)
 - [x] `hf` downloads complete (9 files in `D:\Code\Inference\models`, sizes in 5.1). Fix that worked: Cloudflare WARP + exact-file-name script (5.2)
 - [x] LM Studio downloads: `google/gemma-4-e4b` (6.33 GB total) and `prism-ml/bonsai-27b` (4.73 GB total). Totals likely include vision/audio files; confirm file names, quant, and that Bonsai is the Qwen3.6-based v1 (see 5.2 command)
@@ -941,6 +942,29 @@ Observations:
 - Short tasks are dominated by fixed costs: `if-*` tasks take 2-3 s, of which ~1.3 s is time to first token.
 - **Open question: Vulkan prefill vs exact batch size.** `math-pin-count` (55-token prompt) took 3.95 s to prefill (13.9 tok/s): the server split it 51 + 4 (checkpoint), and the **51-token batch alone took 2.7 s**, far off the Phase 3 curve (32 tokens 0.77 s, 64 tokens 0.64 s). Hypothesis: some non-power-of-two batch sizes hit a slow Vulkan path. Test: `llama-bench -m <4B Q4_K_M> -ngl 99 -t 5 -p 48,50,51,52,56,60,64 -n 0 -r 3` (Vulkan) and the same on CPU.
 
+### 9.4b Model comparison, thinking off, 24 tasks × 1 (2026-09-24 21:26-22:05, Vulkan)
+
+| Model | Passed | Correct/hour | Median s/task | Decode tok/s | Memory GiB | KV at 16K |
+|---|---|---|---|---|---|---|
+| **Gemma 4 E4B Q4_K_M** | **19/23 (83%)** | 110 | 12.1 | 13.9 | 5.69 (2.2 GB of it in CPU RAM) | **40 MiB** |
+| Qwen3.5-4B Q4_K_M | 17/23 (74%) | **139** | 12.6 | 14.2 | 3.69 | 512 MiB |
+| Qwen3.5-9B Q4_K_M | 17/23 (74%) | 79 | 18.9 | 9.1 | 5.97 | 512 MiB |
+| Qwen3.5-2B Q4_K_M | 9/23 (39%) | 81 | 7.1 | 26.8 | 1.86 | 192 MiB |
+| Phi-4-mini Q4_K_M (greedy) | 7/23 (30%) | 120 | 8.7 | 17.6 | 4.88 | **2,048 MiB** |
+| Qwen3.5-4B Q8_0 | stopped after 1 task (Pratham had to leave) | | | 10.7 | 5.45 | 512 MiB |
+
+- KV per token confirmed for three designs: Qwen3.5 hybrid 32 KB, Phi-4-mini 128 KB (as predicted in section 4), Gemma 4 E4B ~2.5 KB (likely sliding-window attention; not yet confirmed from its log).
+- Phi-4-mini answers are coherent (not the Vulkan garbage bug); its failures are real logic errors. Its 120 correct/hour comes from speed, not accuracy: **judge pass rate first, then correct/hour.**
+- The 9B scored the same as the 4B at 1.5× the time: no gain on these tasks.
+
+**Provisional verdict (n = 1 repeat; Gemma's lead is only 2 tasks, so Phase 5's 3 repeats must confirm):**
+- **Default for coding: Gemma 4 E4B Q4_K_M, thinking off.**
+- **Quick tasks / low memory: Qwen3.5-4B Q4_K_M, thinking off.**
+- **Retry for a failed bug fix: Qwen3.5-4B, thinking on** (fixed 2 of 2 failed bug tasks, ~6 min each).
+- **Not recommended:** Phi-4-mini, Qwen3.5-2B, Qwen3.5-9B.
+
+To finish the Q8_0 run later (resumes, skips done tasks): `uv run lab run configs\qwen35-4b-q8-vulkan-nothink.yaml --repeats 1`
+
 ### 9.5 Phase 5: quality (from `results/report.md`)
 | Config | Pass rate | Median time/task | Correct/hour | Notes |
 |---|---|---|---|---|
@@ -1166,3 +1190,4 @@ Claude/GPT also generate one token at a time (plus internal planning). Differenc
 | 2026-09-24 | Claude Code | v22: Phase 4 milestones 1-2 built. API probe (fields in 9.4a); `lab` CLI (run / selftest / tasks / probe); machine files + presets; 24 tasks (Python, JS, SQL, a little C++) with reference + wrong answers; sandboxed checks; first real runs (thinking off 17/23, 136 correct/hour); Smart App Control found to block some compiled C++ test programs (handled as "not graded"); open question on Vulkan prefill at odd batch sizes; `CLAUDE.md` imports this file; `.gitignore` |
 | 2026-09-24 | Claude Code | v23: first thinking-on run stopped (laptop low on memory, nothing saved); rerun with apps closed verified the thinking path end to end (`math-pin-count`: PASS, 1,417 thinking tokens, first answer token at 105 s, 3.7× slower than thinking off); batch-size hypothesis weakened |
 | 2026-09-24 | Claude Code | v24: full thinking-on set (8 tasks × 1): 7/8 in 36.4 min vs thinking off 5/8 in 2.3 min → 12 vs 132 correct answers per hour; thinking fixed the two failed bug tasks at 6-10 min each |
+| 2026-09-24 | Claude Code | v25: milestones 3-5 built (`lab report` tested; `lab needle`, `lab bench` not yet run); 6-model comparison (9.4b): Gemma 4 E4B 19/23, Qwen 4B 17/23 (139 correct/h), 9B 17/23, 2B 9/23, Phi-4-mini 7/23; provisional verdict; Q8_0 run stopped early |

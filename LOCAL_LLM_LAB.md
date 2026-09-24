@@ -59,7 +59,8 @@ You are continuing a learning project on running LLMs locally. Rules:
 - [ ] **Phase 4: build the harness in Claude Code** (section 6, Phase 4; spec in section 7)
   - [x] API probe: raw JSON of thinking off/on and streaming inspected; fields agreed (9.4a)
   - [x] Milestone 1: `tasks/tasks.yaml`, 24 tasks (Python, JS, SQL, a little C++); `lab selftest` passes
-  - [x] Milestone 2: `uv run lab run` (resumable, `results/runs.jsonl`); first real runs done (9.4a)
+  - [x] Milestone 2: `uv run lab run` (resumable, `results/runs.jsonl`); thinking-off run done (9.4a)
+  - [ ] Verify the thinking-on path end to end (first attempt stopped: laptop low on memory; 9.4a)
   - [ ] Milestone 3: `report.py` (pass rate, correct answers per hour, charts)
   - [ ] Milestone 4: `needle.py` · Milestone 5 (optional): `bench.py`
   - [ ] Pratham: read the task list, add or change tasks (section 8)
@@ -891,6 +892,8 @@ Failures (all checked by hand: real model mistakes, not harness errors):
 - `explain-js-event-loop`: answered `A C G D E F B` (correct `A E G C D F B`).
 - `if-three-bullets`: used "knowledge" (9 letters; rule said max 8).
 - `js-deep-merge`: turns arrays into objects and loses base values.
+
+**Thinking-on run, 2026-09-24 ~20:20: stopped, no results.** `qwen35-4b-q4km-vulkan-think` (8 `both` tasks × 1) was stopped by Claude Code because the laptop was low on memory (4.6 GB free of 15.4 GB afterwards), during the first task (`bug-py-paginate`: 2,827 thinking tokens after 3 min 17 s at 15.0 tok/s, still thinking). No row was saved (a row is written only when a task ends); no `llama-server` was left running. **The harness's thinking-on path is therefore not yet verified end to end** (the thinking-token method itself was verified in the probe above). Cheap check, with other apps closed: `uv run lab run configs\qwen35-4b-q4km-vulkan-think.yaml --tasks math-pin-count --repeats 1`. Note for Phase 5: at ~15 tok/s, thinking tasks can take 3-10+ min each.
 
 Observations:
 - **Explaining a bug ≠ fixing it** (two cases above). Only running the code or query shows it; eyeballing the explanation would have marked both correct.

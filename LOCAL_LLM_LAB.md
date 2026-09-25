@@ -1,6 +1,6 @@
 # Local LLM Lab: Master File
 
-> **Version:** 26 · **Last updated:** 2026-09-25 · **Owner:** Pratham
+> **Version:** 27 · **Last updated:** 2026-09-25 · **Owner:** Pratham
 > **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 done (harness complete); 5 next (3 repeats per task)
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
@@ -1137,6 +1137,33 @@ Claude/GPT also generate one token at a time (plus internal planning). Differenc
 
 ---
 
+### 12.6 New candidates for this laptop (Hugging Face + X search, 2026-09-25)
+
+Checked on the Hugging Face API (exact file sizes); **none tested in the harness yet**. Each needs one config file + one run (~10 min) before trusting it.
+
+**Worth trying (in this order):**
+
+| # | Model | File | Size | Why |
+|---|---|---|---|---|
+| 1 | **Gemma 4 E4B QAT** + MTP drafter | `unsloth/gemma-4-E4B-it-qat-GGUF`: `gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf` + `MTP/mtp-gemma-4-E4B-it-Q4_0.gguf` | 4.22 GB + 0.06 GB | Same model as the current winner, trained for 4-bit (QAT), so likely less quality loss than the tested Q4_K_M (5.34 GB) at a smaller size. MTP drafts several tokens at once: faster decode (not measured). Build 11157 supports it (`--spec-type draft-mtp`). Google's own QAT file: `google/gemma-4-E4B-it-qat-q4_0-gguf` (5.15 GB). |
+| 2 | **Qwen3.5-4B MTP** | `unsloth/Qwen3.5-4B-MTP-GGUF`: `Qwen3.5-4B-Q4_K_M.gguf` | 2.83 GB | Same quick model with a built-in MTP head: faster decode expected (not measured). |
+
+**Looked at and skipped:**
+
+| Model | Why skipped |
+|---|---|
+| LFM2.5-8B-A1B (LiquidAI, 8.3B total / 1.5B active, 5.16 GB Q4_K_M) | Fast MoE, but its own card says it is "not the best fit for heavy programming". Good for tool calls / structured output instead. (`…-DSpark-GGUF` is only a 0.2 GB draft model.) |
+| Gemma 4 12B QAT (6.98 GB) | Dense 12B: est. ~7 tok/s here and ~8.5 GB of the ~9-10 GB budget. PC candidate (11.2), not laptop. |
+| Gemma 4 26B-A4B, Qwen3.6/3.8 27B-35B, Qwen3-Coder-30B-A3B, Tiel-Coder-35B-A3B, Qwopus 27B/35B coders | Too big for 16 GB shared memory. PC candidates. |
+| Qwen3.8-Flash-Next | 177B parameters (~110 GB at 4-bit). The small files in its repo are MTP drafts, not the model. |
+| MiMo-V2.6-Distill-Qwen-9B (Xiaomi fork of Qwen 9B), Qwopus3.5-9B-Coder | 9B class: our 9B scored the same as the 4B at 1.5x the time (9.4b). |
+| Qwen3.5-4B "Claude-Opus-Reasoning-Distilled" (Jackrong) and similar community forks | Unverified community fine-tunes; reasoning distills write long answers (slow here). Section 5.1 rule: skip unless tested. |
+| MiniCPM5-2B (1.56 GB) | 2B class: Qwen3.5-2B scored 39% (9.4b). |
+| Uncensored / abliterated / Heretic re-uploads (most of the trending list) | Section 5.1 rule: skip. |
+| OpenVINO backend for llama.cpp (OpenVINO 2026.1) | Promising for Intel prefill, but failed on a hybrid MoE+SSM model (Qwen3.6-35B-A3B) on an Intel iGPU; tester's verdict "use Vulkan". Qwen3.5 is also hybrid. Revisit later. |
+
+Sources: Hugging Face API; [grigio.org Panther Lake backend benchmark](https://grigio.org/benchmarking-llama-cpp-backends-on-intel-panther-lake-vulkan-vs-sycl-vs-openvino-vs-cpu/); [Phoronix OpenVINO 2026.1](https://www.phoronix.com/news/OpenVINO-2026.1-Released); [X: Gemma 4 MTP merged in llama.cpp](https://x.com/osanseviero/status/2063676865441665426); [X: Gemma 4 vs Qwen 3.5 small models](https://x.com/neural_avb/status/2040305916512440399).
+
 ## 13. Glossary and sources
 
 ### Glossary
@@ -1207,3 +1234,4 @@ Claude/GPT also generate one token at a time (plus internal planning). Differenc
 | 2026-09-24 | Claude Code | v24: full thinking-on set (8 tasks × 1): 7/8 in 36.4 min vs thinking off 5/8 in 2.3 min → 12 vs 132 correct answers per hour; thinking fixed the two failed bug tasks at 6-10 min each |
 | 2026-09-24 | Claude Code | v25: milestones 3-5 built (`lab report` tested; `lab needle`, `lab bench` not yet run); 6-model comparison (9.4b): Gemma 4 E4B 19/23, Qwen 4B 17/23 (139 correct/h), 9B 17/23, 2B 9/23, Phi-4-mini 7/23; provisional verdict; Q8_0 run stopped early |
 | 2026-09-25 | Claude Code | v26: harness complete. Q8_0 finished (15/23: lower than Q4 → 1-repeat noise is ±2-3 tasks); `lab needle` tested (4K/16K found, 16K prefill 178 s, 32K Vulkan `ErrorDeviceLost`); `lab bench` tested (batch-size hypothesis rejected); needle errors now stored as `found: null`; report chart labels show pass rate; provisional laptop verdict in 9.8 |
+| 2026-09-25 | Claude Code | v27: Hugging Face + X search for laptop models (12.6): try Gemma 4 E4B QAT + MTP (4.22 GB) and Qwen3.5-4B MTP; skipped LFM2.5-8B-A1B (not for coding), 9B+ forks, 26B+ models, community distills, OpenVINO backend (fails on hybrid models) |

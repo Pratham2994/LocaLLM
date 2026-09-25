@@ -36,7 +36,7 @@ def run_bench(cfg: RunConfig, machine: Machine, pp: str, tg: str, depth: str, re
         test = json.loads(line)
         append_row({"ts": stamp, "machine": machine.name, "config": cfg.name,
                      "backend": cfg.backend.name, **test}, BENCH_FILE)
-        print(f"   {bench_test_name(test):<18} {test.get('avg_ts', 0):8.2f} ± {test.get('stddev_ts', 0):.2f} t/s",
+        print(f"   {bench_test_name(test):<18} {test.get('avg_ts', 0):8.2f} +/- {test.get('stddev_ts', 0):.2f} t/s",
               flush=True)
 
 

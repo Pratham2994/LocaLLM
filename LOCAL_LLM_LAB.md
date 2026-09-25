@@ -1,7 +1,7 @@
 # Local LLM Lab: Master File
 
-> **Version:** 25 · **Last updated:** 2026-09-24 · **Owner:** Pratham
-> **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 (harness: milestones 1-2 built and run; 3-5 next)
+> **Version:** 26 · **Last updated:** 2026-09-25 · **Owner:** Pratham
+> **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 done (harness complete); 5 next (3 repeats per task)
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
 
@@ -56,15 +56,16 @@ You are continuing a learning project on running LLMs locally. Rules:
 - [x] Phase 3 part 1: thread sweeps (CPU and Vulkan) and prefill curves (see 9.4)
 - [x] Phase 3 part 2: size ladder incl. Gemma 4 E4B and Bonsai 27B v1, both engines (see 9.4)
 - [x] Phase 3 part 3: depth test (see 9.4). **Phase 3 complete**
-- [ ] **Phase 4: build the harness in Claude Code** (section 6, Phase 4; spec in section 7)
+- [x] **Phase 4: build the harness in Claude Code** (section 6, Phase 4; spec in section 7): all 5 milestones built and tested
   - [x] API probe: raw JSON of thinking off/on and streaming inspected; fields agreed (9.4a)
   - [x] Milestone 1: `tasks/tasks.yaml`, 24 tasks (Python, JS, SQL, a little C++); `lab selftest` passes
   - [x] Milestone 2: `uv run lab run` (resumable, `results/runs.jsonl`); thinking-off run done (9.4a)
   - [x] Verify the thinking-on path end to end (first attempt stopped: laptop low on memory; second, with apps closed: PASS, all fields correct; 9.4a)
   - [x] Full thinking-on set (8 tasks × 1): 7/8 in 36.4 min vs thinking off 5/8 in 2.3 min (9.4a)
   - [x] Milestone 3: `uv run lab report` (tested on real results)
-  - [ ] Milestone 4 `lab needle` and 5 `lab bench`: **built, not yet run** (GPU was busy). Test: `uv run lab needle configs\qwen35-4b-q4km-vulkan-nothink.yaml` and `uv run lab bench configs\qwen35-4b-q4km-vulkan-nothink.yaml --pp 48,50,51,52,56,64 --tg 0` (also answers the batch-size question in 9.4a)
-  - [x] Model comparison, 6 models, thinking off (9.4b); Qwen3.5-4B Q8_0 unfinished
+  - [x] Milestone 4 `lab needle`: tested at 4K / 16K / 32K (found / found / GPU crash; 9.6)
+  - [x] Milestone 5 `lab bench`: tested; answered the batch-size question (hypothesis rejected; 9.4a)
+  - [x] Model comparison, 7 configs, thinking off, 1 repeat (9.4b), incl. Qwen3.5-4B Q8_0
   - [ ] Pratham: read the task list, add or change tasks (section 8)
 - [x] `hf` downloads complete (9 files in `D:\Code\Inference\models`, sizes in 5.1). Fix that worked: Cloudflare WARP + exact-file-name script (5.2)
 - [x] LM Studio downloads: `google/gemma-4-e4b` (6.33 GB total) and `prism-ml/bonsai-27b` (4.73 GB total). Totals likely include vision/audio files; confirm file names, quant, and that Bonsai is the Qwen3.6-based v1 (see 5.2 command)
@@ -88,7 +89,7 @@ You are continuing a learning project on running LLMs locally. Rules:
 | 1 | LM Studio first tests | Done (Vulkan default, Think off default) |
 | 2 | llama.cpp first run | Done |
 | 3 | Speed tests (llama-bench) | Done |
-| 4 | Build test harness (Claude Code) | In progress (milestones 1-2 done) |
+| 4 | Build test harness (Claude Code) | Done (5 milestones; provisional verdict in 9.8) |
 | 5 | Quality tests | Not started |
 | 6 | Memory / context tests | Not started |
 | 7 | Bigger model vs more bits + laptop verdict | Not started |
@@ -940,7 +941,7 @@ Failures (all checked by hand: real model mistakes, not harness errors):
 Observations:
 - **Explaining a bug ≠ fixing it** (two cases above). Only running the code or query shows it; eyeballing the explanation would have marked both correct.
 - Short tasks are dominated by fixed costs: `if-*` tasks take 2-3 s, of which ~1.3 s is time to first token.
-- **Open question: Vulkan prefill vs exact batch size.** `math-pin-count` (55-token prompt) took 3.95 s to prefill (13.9 tok/s): the server split it 51 + 4 (checkpoint), and the **51-token batch alone took 2.7 s**, far off the Phase 3 curve (32 tokens 0.77 s, 64 tokens 0.64 s). Hypothesis: some non-power-of-two batch sizes hit a slow Vulkan path. Test: `llama-bench -m <4B Q4_K_M> -ngl 99 -t 5 -p 48,50,51,52,56,60,64 -n 0 -r 3` (Vulkan) and the same on CPU.
+- **Open question: Vulkan prefill vs exact batch size.** `math-pin-count` (55-token prompt) took 3.95 s to prefill (13.9 tok/s): the server split it 51 + 4 (checkpoint), and the **51-token batch alone took 2.7 s**, far off the Phase 3 curve (32 tokens 0.77 s, 64 tokens 0.64 s). Hypothesis: some non-power-of-two batch sizes hit a slow Vulkan path. ~~Test: `llama-bench … -p 48,50,51,52,56,60,64`~~ **Tested 2026-09-25 (`lab bench`, Vulkan, 3 repeats): hypothesis rejected.** pp48 81.2, pp50 82.1, **pp51 83.7 t/s (0.61 s)**, pp52 89.9, pp55 91.2, pp56 95.7, pp64 102.1: a smooth curve, no slow sizes. The 2.7 s in the server was a one-off stall.
 
 ### 9.4b Model comparison, thinking off, 24 tasks × 1 (2026-09-24 21:26-22:05, Vulkan)
 
@@ -951,11 +952,12 @@ Observations:
 | Qwen3.5-9B Q4_K_M | 17/23 (74%) | 79 | 18.9 | 9.1 | 5.97 | 512 MiB |
 | Qwen3.5-2B Q4_K_M | 9/23 (39%) | 81 | 7.1 | 26.8 | 1.86 | 192 MiB |
 | Phi-4-mini Q4_K_M (greedy) | 7/23 (30%) | 120 | 8.7 | 17.6 | 4.88 | **2,048 MiB** |
-| Qwen3.5-4B Q8_0 | stopped after 1 task (Pratham had to leave) | | | 10.7 | 5.45 | 512 MiB |
+| Qwen3.5-4B Q8_0 | 15/23 (65%) | 55 | 17.0 | 11.4 | 5.45 | 512 MiB |
 
 - KV per token confirmed for three designs: Qwen3.5 hybrid 32 KB, Phi-4-mini 128 KB (as predicted in section 4), Gemma 4 E4B ~2.5 KB (likely sliding-window attention; not yet confirmed from its log).
 - Phi-4-mini answers are coherent (not the Vulkan garbage bug); its failures are real logic errors. Its 120 correct/hour comes from speed, not accuracy: **judge pass rate first, then correct/hour.**
 - The 9B scored the same as the 4B at 1.5× the time: no gain on these tasks.
+- **Q8_0 scored lower than Q4_K_M (15 vs 17)**, which 8-bit should not do: it failed 3 tasks Q4 passed and passed 1 Q4 failed (all 4 failures checked: real errors, incl. `js-deep-merge` looping until the 4,096-token limit, 6 min). With 1 repeat, **±2-3 tasks is noise**; this is also why Gemma's 2-task lead is not yet proof. Q8 is also slower (11.4 vs 14.2 tok/s, 5.45 vs 3.69 GiB).
 
 **Provisional verdict (n = 1 repeat; Gemma's lead is only 2 tasks, so Phase 5's 3 repeats must confirm):**
 - **Default for coding: Gemma 4 E4B Q4_K_M, thinking off.**
@@ -963,7 +965,7 @@ Observations:
 - **Retry for a failed bug fix: Qwen3.5-4B, thinking on** (fixed 2 of 2 failed bug tasks, ~6 min each).
 - **Not recommended:** Phi-4-mini, Qwen3.5-2B, Qwen3.5-9B.
 
-To finish the Q8_0 run later (resumes, skips done tasks): `uv run lab run configs\qwen35-4b-q8-vulkan-nothink.yaml --repeats 1`
+Q8_0 finished 2026-09-25 (resumed after the stop; 23 remaining tasks).
 
 ### 9.5 Phase 5: quality (from `results/report.md`)
 | Config | Pass rate | Median time/task | Correct/hour | Notes |
@@ -987,7 +989,19 @@ Quality breaking point: ___
 | 4B Q4_K_M | 32768 | | | |
 | 4B Q4_K_M | 65536 | | | |
 
-Swap point (9B Q4_K_M): -c = ___ · Needle 4K/16K/32K: ___ / ___ / ___ · 16K prefill time: ___
+Swap point (9B Q4_K_M): -c = ___ · Needle 4K/16K/32K: **found / found / GPU crash** · 16K prefill time: **178 s**
+
+**Needle test 2026-09-25** (`lab needle`, Qwen3.5-4B Q4_K_M, Vulkan, `-c 33792`, KV 1,056 MiB, fact at depth 0.5):
+
+| Target | Actual prompt tokens | Found? | Prefill | Prefill tok/s |
+|---|---|---|---|---|
+| 4K | 4,042 | yes | 19.6 s | 206 |
+| 16K | 16,377 | yes | **178 s** | 92 |
+| 32K | 32,746 | **crash**: `vk::Device::getFenceStatus: ErrorDeviceLost` after 5 min 44 s, at ~22.5-24.5K tokens processed | – | – |
+
+- Prefill slows with depth: each 2,048-token slice took 5.6 s at the start, 23 s at 10K, 45-52 s at 20-22K (attention compares each new token with all earlier ones).
+- **Laptop limit on Vulkan: keep prompts under ~16K tokens** (16K already costs 3 min before the first word). Cause of the crash not confirmed: no Windows GPU-reset event (4101) was logged. Untested: the same on the CPU backend (no GPU watchdog, but ~5× slower prefill).
+- Fixed in the harness: a crashed request is now stored as `found: null` (error), not as a miss.
 
 ### 9.7 Phase 7: bigger vs more bits
 | Config | Size GB | Pass rate | Correct/hour | tg128 |
@@ -999,10 +1013,11 @@ Swap point (9B Q4_K_M): -c = ___ · Needle 4K/16K/32K: ___ / ___ / ___ · 16K pr
 | Gemma 4 E4B Q4_K_M | | | | |
 
 ### 9.8 Laptop verdict
-- Daily model: ___ (why: ___)
-- Quick-task model: ___
-- Thinking: on for ___, off for ___
-- Breaking points: speed ___ · quality ___ · memory ___
+**Provisional (2026-09-25, 1 repeat per task; Phase 5 must confirm):**
+- Daily model: **Gemma 4 E4B Q4_K_M, thinking off** (why: most correct, 19/23; same time per task as Qwen 4B; tiny KV cache, 40 MiB at 16K)
+- Quick-task / low-memory model: **Qwen3.5-4B Q4_K_M, thinking off** (17/23, most correct answers per hour, 3.7 GiB)
+- Thinking: **off by default; on only to retry a failed bug fix** (Qwen 4B fixed 2 of 2 failed bug tasks, ~6-10 min each)
+- Breaking points: speed **Bonsai 27B / 9B too slow for the gain** · quality **2B and Phi-4-mini too weak (≤ 39%)** · memory/context **~16K-token prompts on Vulkan (32K crashed)**
 
 ---
 
@@ -1191,3 +1206,4 @@ Claude/GPT also generate one token at a time (plus internal planning). Differenc
 | 2026-09-24 | Claude Code | v23: first thinking-on run stopped (laptop low on memory, nothing saved); rerun with apps closed verified the thinking path end to end (`math-pin-count`: PASS, 1,417 thinking tokens, first answer token at 105 s, 3.7× slower than thinking off); batch-size hypothesis weakened |
 | 2026-09-24 | Claude Code | v24: full thinking-on set (8 tasks × 1): 7/8 in 36.4 min vs thinking off 5/8 in 2.3 min → 12 vs 132 correct answers per hour; thinking fixed the two failed bug tasks at 6-10 min each |
 | 2026-09-24 | Claude Code | v25: milestones 3-5 built (`lab report` tested; `lab needle`, `lab bench` not yet run); 6-model comparison (9.4b): Gemma 4 E4B 19/23, Qwen 4B 17/23 (139 correct/h), 9B 17/23, 2B 9/23, Phi-4-mini 7/23; provisional verdict; Q8_0 run stopped early |
+| 2026-09-25 | Claude Code | v26: harness complete. Q8_0 finished (15/23: lower than Q4 → 1-repeat noise is ±2-3 tasks); `lab needle` tested (4K/16K found, 16K prefill 178 s, 32K Vulkan `ErrorDeviceLost`); `lab bench` tested (batch-size hypothesis rejected); needle errors now stored as `found: null`; report chart labels show pass rate; provisional laptop verdict in 9.8 |

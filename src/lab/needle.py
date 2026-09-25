@@ -76,7 +76,9 @@ def run_needle(cfg: RunConfig, machine: Machine, sizes: list[int], depths: list[
                 prompt = build_prompt(machine.base_url, size, depth)
                 res = client.chat(machine.base_url, prompt, thinking=False, sampling=cfg.sampling,
                                   max_tokens=64, timeout_s=cfg.request_timeout_s)
-                found = CODE.replace("-", "").lower() in res.answer.replace("-", "").replace(" ", "").lower()
+                # None = the request failed (e.g. GPU error): not the same as the model missing the fact
+                found = None if res.error else (
+                    CODE.replace("-", "").lower() in res.answer.replace("-", "").replace(" ", "").lower())
                 append_row({
                     "ts": datetime.now().astimezone().isoformat(timespec="seconds"),
                     "machine": machine.name, "config": cfg.name, "config_hash": cfg.config_hash,
@@ -85,7 +87,7 @@ def run_needle(cfg: RunConfig, machine: Machine, sizes: list[int], depths: list[
                     **res.to_dict(), "server": {**srv.info, "cmd": cmd},
                 }, NEEDLE_FILE)
                 print(f"   {size:>6} tokens (actual {res.prompt_tokens}), depth {depth:.2f}: "
-                      f"{'FOUND' if found else 'MISSED'}  prefill {_s(res.prefill_ms)}  "
+                      f"{'ERROR' if found is None else 'FOUND' if found else 'MISSED'}  prefill {_s(res.prefill_ms)}  "
                       f"({_f(res.prefill_tok_s)} tok/s)  answer {res.answer.strip()[:40]!r}"
                       + (f"  error {res.error}" if res.error else ""), flush=True)
 

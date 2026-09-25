@@ -213,8 +213,9 @@ def _needle_section() -> list[str]:
            "| Machine | Config | Prompt tokens | Depth | Found | Prefill s | Prefill tok/s | Answer |",
            "|---|---|---|---|---|---|---|---|"]
     for r in rows:
-        out.append(f"| {r['machine']} | `{r['config']}` | {r['prompt_tokens']} | {r['depth']:.2f} "
-                   f"| {'yes' if r['found'] else '**no**'} | {_f(r['prefill_ms'] and r['prefill_ms'] / 1000, '.1f')} "
+        found = f"**error**: {r['error'][:60]}" if r.get("error") else "yes" if r["found"] else "**no**"
+        out.append(f"| {r['machine']} | `{r['config']}` | {r['prompt_tokens'] or '~' + str(r['target_tokens'])} "
+                   f"| {r['depth']:.2f} | {found} | {_f(r['prefill_ms'] and r['prefill_ms'] / 1000, '.1f')} "
                    f"| {_f(r['prefill_tok_s'], '.0f')} | `{r['answer'].strip()[:30]}` |")
     return out
 
@@ -246,8 +247,9 @@ def build_report() -> Path:
     off = [s for s in sums if not s.thinking]
     charts = []
     if off:
-        _hbar(CHART_DIR / "correct_per_hour.png", [s.label for s in off], [s.correct_per_hour for s in off],
-              "Correct answers per hour", "Thinking off; passed tasks ÷ hours spent on graded tasks",
+        _hbar(CHART_DIR / "correct_per_hour.png", [f"{s.label} ({s.pass_rate:.0%} pass)" for s in off],
+              [s.correct_per_hour for s in off], "Correct answers per hour",
+              "Thinking off. Read with the pass rate: fast but wrong is no use",
               "Correct answers per hour", lambda v: f"{v:.0f}")
         charts.append(("Correct answers per hour", "correct_per_hour.png"))
         by_time = sorted(off, key=lambda s: s.median("wall_s") or 0)

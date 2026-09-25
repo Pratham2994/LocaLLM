@@ -1,6 +1,6 @@
 # Local LLM Lab: Master File
 
-> **Version:** 29 · **Last updated:** 2026-09-25 · **Owner:** Pratham
+> **Version:** 30 · **Last updated:** 2026-09-25 · **Owner:** Pratham
 > **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 done (harness complete); 5 next (3 repeats per task)
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
@@ -67,6 +67,7 @@ You are continuing a learning project on running LLMs locally. Rules:
   - [x] Milestone 5 `lab bench`: tested; answered the batch-size question (hypothesis rejected; 9.4a)
   - [x] Model comparison, 7 configs, thinking off, 1 repeat (9.4b), incl. Qwen3.5-4B Q8_0
   - [ ] Pratham: read the task list, add or change tasks (section 8)
+  - [x] Model clean-up 2026-09-25: kept Qwen3.5-4B Q4_K_M + Gemma 4 E4B QAT (+ MTP helper); others deleted (5.1)
 - [x] `hf` downloads complete (9 files in `D:\Code\Inference\models`, sizes in 5.1). Fix that worked: Cloudflare WARP + exact-file-name script (5.2)
 - [x] LM Studio downloads: `google/gemma-4-e4b` (6.33 GB total) and `prism-ml/bonsai-27b` (4.73 GB total). Totals likely include vision/audio files; confirm file names, quant, and that Bonsai is the Qwen3.6-based v1 (see 5.2 command)
 - [x] llama.cpp build **11157** (commit 53ed051ce, version 0.5.0-dev). Vulkan build sees `Vulkan0: Intel(R) Arc(TM) 130T GPU (8GB) (8972 MiB, 8267 MiB free)`
@@ -191,6 +192,8 @@ You are continuing a learning project on running LLMs locally. Rules:
 ## 5. Models
 
 ### 5.1 Laptop model list
+
+> **2026-09-25: models cleaned up (Pratham's decision; ~40 GB freed).** Kept only: **Qwen3.5-4B Q4_K_M** (`C:\Users\prath\.lmstudio\models\unsloth\Qwen3.5-4B-GGUF\`) and **Gemma 4 E4B QAT UD-Q4_K_XL** + its MTP helper (`D:\Code\Inference\models\`, from `unsloth/gemma-4-E4B-it-qat-GGUF`). Deleted: every other file in the table below (#2-#12) and the Qwen3.8-4B distill. Their results stay in `results/runs.jsonl`; their configs moved to `configs/archive/`. Phase 5-7 plans that use deleted files (4B quant ladder, 9B, Phi-4-mini, Bonsai) need a re-download first (5.2 script).
 
 | # | Model | Quant | File size | Source | Role | Phase |
 |---|---|---|---|---|---|---|
@@ -1255,3 +1258,4 @@ Sources: Hugging Face API; [grigio.org Panther Lake backend benchmark](https://g
 | 2026-09-25 | Claude Code | v27: Hugging Face + X search for laptop models (12.6): try Gemma 4 E4B QAT + MTP (4.22 GB) and Qwen3.5-4B MTP; skipped LFM2.5-8B-A1B (not for coding), 9B+ forks, 26B+ models, community distills, OpenVINO backend (fails on hybrid models) |
 | 2026-09-25 | Claude Code | v28: filtered Pratham's Hugging Face list by laptop speed (12.6): test Nemotron-3-Nano-4B next; Ornith smallest is 9B (runs ~9 tok/s, slower); "Qwen3.8-4B-Distill" is a community model (no official Qwen3.8 4B); Ornith-1.5-35B-A3B noted as PC candidate |
 | 2026-09-25 | Claude Code | v29: tested 2 downloads: Gemma 4 E4B QAT UD-Q4_K_XL 19/23 (tie with Q4_K_M; −1.2 GB memory, prefill +16%, decode −7% by clean `lab bench`); "Qwen3.8-4B-Distill" 11/23 (worse than Qwen3.5-4B); report quant label handles `UD-Q4_K_XL` |
+| 2026-09-25 | Claude Code | v30: deleted all models except Qwen3.5-4B Q4_K_M and Gemma 4 E4B QAT (+ MTP helper), ~40 GB freed; configs of deleted models moved to `configs/archive/` so `lab run` still loads |

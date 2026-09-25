@@ -30,6 +30,7 @@ While a run is in progress, `uv run` may fail to reinstall `lab.exe` (locked); u
   port, tools). Picked by hostname. **On the PC, add `pc.yaml`; nothing else should change.**
 - `configs/presets/sampling.yaml`: sampling presets (Qwen3.5 model card values).
 - `configs/*.yaml`: one experiment each (model, backend, ctx, KV type, thinking, sampling, repeats).
+  `configs/archive/`: configs whose model files were deleted (not loaded; results kept in `runs.jsonl`).
 - `tasks/tasks.yaml`: the task set. Every auto-checked task has a `reference` (must pass) and
   ideally a `wrong` answer (must fail). Run `uv run lab selftest` after editing tasks.
 - `src/lab/`: `config.py` (YAML loading, server command), `server.py` (start/health/log parsing),

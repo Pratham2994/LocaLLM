@@ -1,6 +1,6 @@
 # Harness report
 
-Generated 2026-09-25 13:24 from `runs.jsonl` (152 current runs; 24 tasks in `tasks.yaml`). Sorted by correct answers per hour.
+Generated 2026-09-25 14:37 from `runs.jsonl` (200 current runs; 24 tasks in `tasks.yaml`). Sorted by correct answers per hour.
 
 - **Correct answers per hour** = passed auto-graded runs ÷ hours of wall time spent on them.
 - Thinking-on configs run only the tasks marked `thinking: on/both`, so compare them with care.
@@ -12,7 +12,9 @@ Generated 2026-09-25 13:24 from `runs.jsonl` (152 current runs; 24 tasks in `tas
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `qwen35-4b-q4km-vulkan-nothink` | Q4_K_M | 2.74 | off | 24 | 17/23 | **74%** | **139** | 12.6 | 1.5 | 14.2 | 243 | 3.69 | 1 | 0 |
 | `phi4-mini-q4km-vulkan-nothink` | Q4_K_M | 2.49 | off | 24 | 7/23 | **30%** | **120** | 8.7 | 0.6 | 17.6 | 148 | 4.88 | 1 | 0 |
+| `qwen38-4b-distill-q4km-vulkan-nothink` | Q4_K_M | 2.78 | off | 24 | 11/23 | **48%** | **119** | 14.0 | 1.5 | 15.3 | 193 | 3.66 | 1 | 0 |
 | `gemma4-e4b-q4km-vulkan-nothink` | Q4_K_M | 5.34 | off | 24 | 19/23 | **83%** | **110** | 12.1 | 1.1 | 13.9 | 343 | 5.69 | 1 | 0 |
+| `gemma4-e4b-qat-udq4kxl-vulkan-nothink` | UD-Q4_K_XL | 4.22 | off | 24 | 19/23 | **83%** | **99** | 16.0 | 0.9 | 12.3 | 344 | 4.48 | 1 | 0 |
 | `qwen35-2b-q4km-vulkan-nothink` | Q4_K_M | 1.28 | off | 24 | 9/23 | **39%** | **81** | 7.1 | 0.6 | 26.8 | 434 | 1.86 | 1 | 1 |
 | `qwen35-9b-q4km-vulkan-nothink` | Q4_K_M | 5.68 | off | 24 | 17/23 | **74%** | **79** | 18.9 | 2.0 | 9.1 | 268 | 5.97 | 1 | 0 |
 | `qwen35-4b-q8-vulkan-nothink` | Q8_0 | 4.48 | off | 24 | 15/23 | **65%** | **55** | 17.0 | 1.4 | 11.4 | 448 | 5.45 | 1 | 1 |
@@ -24,7 +26,9 @@ Generated 2026-09-25 13:24 from `runs.jsonl` (152 current runs; 24 tasks in `tas
 |---|---|---|---|---|---|---|---|
 | `qwen35-4b-q4km` | 4/6 | 2/4 | 4/4 | 0/1 | 3/3 | 2/3 | 2/2 |
 | `phi4-mini-q4km` | 1/6 | 2/4 | 1/4 | 0/1 | 2/3 | 1/3 | 0/2 |
+| `qwen38-4b-distill-q4km` | 1/6 | 1/4 | 2/4 | 0/1 | 3/3 | 2/3 | 2/2 |
 | `gemma4-e4b-q4km` | 3/6 | 4/4 | 4/4 | 0/1 | 3/3 | 3/3 | 2/2 |
+| `gemma4-e4b-qat-udq4kxl` | 4/6 | 4/4 | 3/4 | 0/1 | 3/3 | 3/3 | 2/2 |
 | `qwen35-2b-q4km` | 1/6 | 2/4 | 1/4 | 0/1 | 3/3 | 1/3 | 1/2 |
 | `qwen35-9b-q4km` | 3/6 | 4/4 | 3/4 | 0/1 | 3/3 | 2/3 | 2/2 |
 | `qwen35-4b-q8` | 2/6 | 2/4 | 3/4 | 0/1 | 3/3 | 3/3 | 2/2 |
@@ -34,32 +38,32 @@ Generated 2026-09-25 13:24 from `runs.jsonl` (152 current runs; 24 tasks in `tas
 
 ✓ = passed every repeat, ✗ = failed every repeat, `p/n` = mixed, M = needs manual grading, blank = not run.
 
-| Task | Category | `qwen35-4b-q4km` | `phi4-mini-q4km` | `gemma4-e4b-q4km` | `qwen35-2b-q4km` | `qwen35-9b-q4km` | `qwen35-4b-q8` | `qwen35-4b-q4km-think` |
-|---|---|---|---|---|---|---|---|---|
-| `py-parse-date` | small function | ✓ | ✓ | ✓ | ✗ | ✓ | ✗ |  |
-| `py-normalise-order` | small function | ✓ | ✗ | ✗ | ✗ | ✓ | ✗ |  |
-| `py-merge-slots` | small function | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ |  |
-| `js-parse-query` | small function | ✓ | ✗ | ✓ | ✗ | ✗ | ✓ |  |
-| `js-deep-merge` | small function | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |  |
-| `cpp-parse-duration` | small function | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |  |
-| `bug-py-paginate` | bug finding | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✓ |
-| `bug-py-split-pence` | bug finding | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `bug-js-top-scores` | bug finding | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `bug-sql-left-join` | bug finding | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✓ |
-| `sql-top-customers` | sql regex | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
-| `sql-monthly-running-total` | sql regex | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ |  |
-| `sql-latest-status` | sql regex | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ |  |
-| `py-regex-log-line` | sql regex | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ |  |
-| `explain-js-event-loop` | explain code | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
-| `explain-py-rate-cache` | explain code | M | M | M | M | M | M |  |
-| `math-batch-job` | maths logic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `math-sla-downtime` | maths logic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `math-pin-count` | maths logic | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `if-three-bullets` | instruction following | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ |  |
-| `if-json-extract` | instruction following | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ |  |
-| `if-one-sentence` | instruction following | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
-| `sum-incident` | summarise | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ |  |
-| `sum-release-notes` | summarise | ✓ | ✗ | ✓ | ✗ | ✓ | ✓ |  |
+| Task | Category | `qwen35-4b-q4km` | `phi4-mini-q4km` | `qwen38-4b-distill-q4km` | `gemma4-e4b-q4km` | `gemma4-e4b-qat-udq4kxl` | `qwen35-2b-q4km` | `qwen35-9b-q4km` | `qwen35-4b-q8` | `qwen35-4b-q4km-think` |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `py-parse-date` | small function | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ |  |
+| `py-normalise-order` | small function | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |  |
+| `py-merge-slots` | small function | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| `js-parse-query` | small function | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✗ | ✓ |  |
+| `js-deep-merge` | small function | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ |  |
+| `cpp-parse-duration` | small function | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |  |
+| `bug-py-paginate` | bug finding | ✗ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ |
+| `bug-py-split-pence` | bug finding | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `bug-js-top-scores` | bug finding | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `bug-sql-left-join` | bug finding | ✗ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✗ | ✓ |
+| `sql-top-customers` | sql regex | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| `sql-monthly-running-total` | sql regex | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ |  |
+| `sql-latest-status` | sql regex | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |  |
+| `py-regex-log-line` | sql regex | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |  |
+| `explain-js-event-loop` | explain code | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ |
+| `explain-py-rate-cache` | explain code | M | M | M | M | M | M | M | M |  |
+| `math-batch-job` | maths logic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `math-sla-downtime` | maths logic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `math-pin-count` | maths logic | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `if-three-bullets` | instruction following | ✗ | ✗ | ✗ | ✓ | ✓ | ✗ | ✗ | ✓ |  |
+| `if-json-extract` | instruction following | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |  |
+| `if-one-sentence` | instruction following | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| `sum-incident` | summarise | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  |
+| `sum-release-notes` | summarise | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ |  |
 
 ## Charts
 

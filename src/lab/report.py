@@ -22,7 +22,7 @@ from .tasks import load_tasks  # noqa: E402
 
 REPORT_FILE = RESULTS_DIR / "report.md"
 CHART_DIR = RESULTS_DIR / "charts"
-QUANT_RE = re.compile(r"(UD-IQ\d_\w+|IQ\d_\w+|Q\d_K_[SML]|Q\d_K|Q\d_\d|BF16|F16|F32)", re.I)
+QUANT_RE = re.compile(r"(UD-IQ\d_\w+|IQ\d_\w+|(?:UD-)?Q\d_K_XL|Q\d_K_[SML]|Q\d_K|Q\d_\d|BF16|F16|F32)", re.I)
 QUANT_ORDER = ["UD-IQ2_XXS", "IQ2_XXS", "IQ2_XS", "Q2_K", "Q3_K_M", "Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0", "BF16", "F16"]
 
 # Chart tokens (dataviz reference palette, light surface).

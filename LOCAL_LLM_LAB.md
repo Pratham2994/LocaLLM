@@ -1,6 +1,6 @@
 # Local LLM Lab: Master File
 
-> **Version:** 28 · **Last updated:** 2026-09-25 · **Owner:** Pratham
+> **Version:** 29 · **Last updated:** 2026-09-25 · **Owner:** Pratham
 > **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 done (harness complete); 5 next (3 repeats per task)
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
@@ -953,10 +953,14 @@ Observations:
 | Qwen3.5-2B Q4_K_M | 9/23 (39%) | 81 | 7.1 | 26.8 | 1.86 | 192 MiB |
 | Phi-4-mini Q4_K_M (greedy) | 7/23 (30%) | 120 | 8.7 | 17.6 | 4.88 | **2,048 MiB** |
 | Qwen3.5-4B Q8_0 | 15/23 (65%) | 55 | 17.0 | 11.4 | 5.45 | 512 MiB |
+| **Gemma 4 E4B QAT UD-Q4_K_XL** (2026-09-25) | **19/23 (83%)** | 99 | 16.0 | 12.3 | **4.48** | 40 MiB |
+| "Qwen3.8-4B-Distill" Q4_K_M (empero-ai, 2026-09-25) | 11/23 (48%) | 119 | 14.0 | 15.3 | 3.66 | 512 MiB |
 
 - KV per token confirmed for three designs: Qwen3.5 hybrid 32 KB, Phi-4-mini 128 KB (as predicted in section 4), Gemma 4 E4B ~2.5 KB (likely sliding-window attention; not yet confirmed from its log).
 - Phi-4-mini answers are coherent (not the Vulkan garbage bug); its failures are real logic errors. Its 120 correct/hour comes from speed, not accuracy: **judge pass rate first, then correct/hour.**
 - The 9B scored the same as the 4B at 1.5× the time: no gain on these tasks.
+- **Gemma QAT vs Gemma Q4_K_M: a tie on quality** (19/23 each; QAT passed `js-deep-merge`, failed `sql-latest-status`). Clean `lab bench` (nothing else running, 7.8 GB free): decode **12.2 vs 13.2 tok/s (−7%)**, prefill **405 vs 349 tok/s (+16%)**, memory **4.48 vs 5.69 GiB (−1.2 GB)**. The slower decode is real, not memory pressure; cause not confirmed (quant mix).
+- **"Qwen3.8-4B-Distill" is weaker than the original Qwen3.5-4B** (11 vs 17/23). Setup checked: 0 thinking tokens, no leaked think tags, all `stop`; failures are real code/SQL errors. Confirms the caution about community distills with borrowed names.
 - **Q8_0 scored lower than Q4_K_M (15 vs 17)**, which 8-bit should not do: it failed 3 tasks Q4 passed and passed 1 Q4 failed (all 4 failures checked: real errors, incl. `js-deep-merge` looping until the 4,096-token limit, 6 min). With 1 repeat, **±2-3 tasks is noise**; this is also why Gemma's 2-task lead is not yet proof. Q8 is also slower (11.4 vs 14.2 tok/s, 5.45 vs 3.69 GiB).
 
 **Provisional verdict (n = 1 repeat; Gemma's lead is only 2 tasks, so Phase 5's 3 repeats must confirm):**
@@ -1014,7 +1018,7 @@ Swap point (9B Q4_K_M): -c = ___ · Needle 4K/16K/32K: **found / found / GPU cra
 
 ### 9.8 Laptop verdict
 **Provisional (2026-09-25, 1 repeat per task; Phase 5 must confirm):**
-- Daily model: **Gemma 4 E4B Q4_K_M, thinking off** (why: most correct, 19/23; same time per task as Qwen 4B; tiny KV cache, 40 MiB at 16K)
+- Daily model: **Gemma 4 E4B, thinking off** (why: most correct, 19/23; tiny KV cache, 40 MiB at 16K). **QAT UD-Q4_K_XL** (4.22 GB file, 4.48 GiB in use) when memory is tight or prompts are long (prefill +16%); **Q4_K_M** (5.34 GB, 5.69 GiB) when decode speed matters (+7%). Same accuracy.
 - Quick-task / low-memory model: **Qwen3.5-4B Q4_K_M, thinking off** (17/23, most correct answers per hour, 3.7 GiB)
 - Thinking: **off by default; on only to retry a failed bug fix** (Qwen 4B fixed 2 of 2 failed bug tasks, ~6-10 min each)
 - Breaking points: speed **Bonsai 27B / 9B too slow for the gain** · quality **2B and Phi-4-mini too weak (≤ 39%)** · memory/context **~16K-token prompts on Vulkan (32K crashed)**
@@ -1250,3 +1254,4 @@ Sources: Hugging Face API; [grigio.org Panther Lake backend benchmark](https://g
 | 2026-09-25 | Claude Code | v26: harness complete. Q8_0 finished (15/23: lower than Q4 → 1-repeat noise is ±2-3 tasks); `lab needle` tested (4K/16K found, 16K prefill 178 s, 32K Vulkan `ErrorDeviceLost`); `lab bench` tested (batch-size hypothesis rejected); needle errors now stored as `found: null`; report chart labels show pass rate; provisional laptop verdict in 9.8 |
 | 2026-09-25 | Claude Code | v27: Hugging Face + X search for laptop models (12.6): try Gemma 4 E4B QAT + MTP (4.22 GB) and Qwen3.5-4B MTP; skipped LFM2.5-8B-A1B (not for coding), 9B+ forks, 26B+ models, community distills, OpenVINO backend (fails on hybrid models) |
 | 2026-09-25 | Claude Code | v28: filtered Pratham's Hugging Face list by laptop speed (12.6): test Nemotron-3-Nano-4B next; Ornith smallest is 9B (runs ~9 tok/s, slower); "Qwen3.8-4B-Distill" is a community model (no official Qwen3.8 4B); Ornith-1.5-35B-A3B noted as PC candidate |
+| 2026-09-25 | Claude Code | v29: tested 2 downloads: Gemma 4 E4B QAT UD-Q4_K_XL 19/23 (tie with Q4_K_M; −1.2 GB memory, prefill +16%, decode −7% by clean `lab bench`); "Qwen3.8-4B-Distill" 11/23 (worse than Qwen3.5-4B); report quant label handles `UD-Q4_K_XL` |

@@ -1,0 +1,9 @@
+name: gemma4-e4b-qat-udq4kxl-vulkan-nothink
+model: gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+backend: vulkan
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: gemma4-card
+repeats: 3
+max_tokens: 4096

@@ -1,0 +1,9 @@
+name: qwen38-4b-distill-q4km-vulkan-nothink
+model: Qwen3.8-4B-Q4_K_M.gguf
+backend: vulkan
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general
+repeats: 3
+max_tokens: 4096

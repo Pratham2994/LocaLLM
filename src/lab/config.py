@@ -123,6 +123,8 @@ class RunConfig:
     max_tokens: int
     request_timeout_s: float
     server_args: tuple[str, ...]
+    draft_model: Path | None = None  # e.g. an MTP helper; resolved like `model`
+    spec_type: str | None = None     # llama-server --spec-type, e.g. draft-mtp
 
     def server_command(self, machine: Machine) -> list[str]:
         cmd = [
@@ -134,6 +136,8 @@ class RunConfig:
         ]
         if self.kv_cache != "f16":
             cmd += ["-ctk", self.kv_cache, "-ctv", self.kv_cache]
+        if self.draft_model:
+            cmd += ["--spec-type", self.spec_type or "draft-mtp", "-md", str(self.draft_model)]
         return cmd + list(self.server_args)
 
     @property
@@ -147,6 +151,8 @@ class RunConfig:
             "thinking": self.thinking, "sampling": self.sampling, "max_tokens": self.max_tokens,
             "server_args": list(self.server_args),
         }
+        if self.draft_model:  # only added when used, so existing hashes stay the same
+            key["draft_model"] = [self.draft_model.name, self.draft_model.stat().st_size, self.spec_type or "draft-mtp"]
         return hashlib.sha256(json.dumps(key, sort_keys=True).encode()).hexdigest()[:12]
 
 
@@ -186,7 +192,8 @@ def resolve_sampling(spec: object, where: str) -> tuple[dict, str | None]:
 def load_run_config(path: Path, machine: Machine) -> RunConfig:
     data = read_yaml(path)
     check_keys(str(path), data, {"name", "model", "backend", "ctx", "thinking", "sampling"},
-               {"kv_cache", "repeats", "max_tokens", "request_timeout_s", "server_args", "notes"})
+               {"kv_cache", "repeats", "max_tokens", "request_timeout_s", "server_args", "notes",
+                "draft_model", "spec_type"})
     if data["backend"] not in machine.backends:
         raise ConfigError(f"{path}: backend {data['backend']!r} is not in machine "
                           f"{machine.name!r} (has {sorted(machine.backends)})")
@@ -209,4 +216,6 @@ def load_run_config(path: Path, machine: Machine) -> RunConfig:
         max_tokens=int(data.get("max_tokens", 4096)),
         request_timeout_s=float(data.get("request_timeout_s", 1800)),
         server_args=tuple(str(a) for a in data.get("server_args") or []),
+        draft_model=resolve_model(str(data["draft_model"]), machine) if data.get("draft_model") else None,
+        spec_type=data.get("spec_type"),
     )

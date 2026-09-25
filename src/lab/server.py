@@ -27,10 +27,24 @@ def port_in_use(host: str, port: int) -> bool:
 
 
 def parse_log(text: str) -> dict:
-    """Pull build number, bits per weight and buffer sizes (MiB per device) from the log."""
+    """Pull build number, bits per weight and buffer sizes (MiB per device) from the log.
+
+    The log can hold several model loads (e.g. main model + MTP draft model), and one model
+    can have several KV caches (Gemma 4: full-attention + sliding-window). So, per model load:
+    model/KV/RS lines add up, while a repeated compute/output line (a re-reserve) replaces the
+    earlier one. The loads are then added together.
+    """
     buffers: dict[str, dict[str, float]] = {}
-    for device, kind, mib in BUFFER_RE.findall(text):
-        buffers.setdefault(kind.lower(), {})[device] = float(mib)
+    for load in re.split(r"(?=llama_model_loader: loaded meta data)", text):
+        per_load: dict[str, dict[str, float]] = {}
+        for device, kind, mib in BUFFER_RE.findall(load):
+            cell = per_load.setdefault(kind.lower(), {})
+            additive = kind.lower() in ("model", "kv", "rs")
+            cell[device] = (cell.get(device, 0.0) if additive else 0.0) + float(mib)
+        for kind, devices in per_load.items():
+            for device, mib in devices.items():
+                total = buffers.setdefault(kind, {})
+                total[device] = round(total.get(device, 0.0) + mib, 2)
     info: dict = {"buffers_mib": buffers}
     if m := BUILD_RE.search(text):
         info["build"], info["commit"] = int(m[1]), m[2]

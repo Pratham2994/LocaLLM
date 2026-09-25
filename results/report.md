@@ -1,6 +1,6 @@
 # Harness report
 
-Generated 2026-09-25 14:37 from `runs.jsonl` (200 current runs; 24 tasks in `tasks.yaml`). Sorted by correct answers per hour.
+Generated 2026-09-25 14:42 from `runs.jsonl` (200 current runs; 24 tasks in `tasks.yaml`). Sorted by correct answers per hour.
 
 - **Correct answers per hour** = passed auto-graded runs ÷ hours of wall time spent on them.
 - Thinking-on configs run only the tasks marked `thinking: on/both`, so compare them with care.
@@ -95,3 +95,7 @@ Generated 2026-09-25 14:37 from `runs.jsonl` (200 current runs; 24 tasks in `tas
 | 2026-09-25T13:23 | laptop | `qwen35-4b-q4km-vulkan-nothink` | 11157 | pp55 | 91.15 | 2.30 |
 | 2026-09-25T13:23 | laptop | `qwen35-4b-q4km-vulkan-nothink` | 11157 | pp56 | 95.66 | 1.08 |
 | 2026-09-25T13:23 | laptop | `qwen35-4b-q4km-vulkan-nothink` | 11157 | pp64 | 102.13 | 1.46 |
+| 2026-09-25T14:38 | laptop | `gemma4-e4b-q4km-vulkan-nothink` | 11157 | pp512 | 348.55 | 1.73 |
+| 2026-09-25T14:38 | laptop | `gemma4-e4b-q4km-vulkan-nothink` | 11157 | tg128 | 13.18 | 0.06 |
+| 2026-09-25T14:39 | laptop | `gemma4-e4b-qat-udq4kxl-vulkan-nothink` | 11157 | pp512 | 404.52 | 2.43 |
+| 2026-09-25T14:39 | laptop | `gemma4-e4b-qat-udq4kxl-vulkan-nothink` | 11157 | tg128 | 12.22 | 0.09 |

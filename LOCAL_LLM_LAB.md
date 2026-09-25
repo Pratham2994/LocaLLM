@@ -1,6 +1,6 @@
 # Local LLM Lab: Master File
 
-> **Version:** 27 · **Last updated:** 2026-09-25 · **Owner:** Pratham
+> **Version:** 28 · **Last updated:** 2026-09-25 · **Owner:** Pratham
 > **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 done (harness complete); 5 next (3 repeats per task)
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
@@ -1162,6 +1162,20 @@ Checked on the Hugging Face API (exact file sizes); **none tested in the harness
 | Uncensored / abliterated / Heretic re-uploads (most of the trending list) | Section 5.1 rule: skip. |
 | OpenVINO backend for llama.cpp (OpenVINO 2026.1) | Promising for Intel prefill, but failed on a hybrid MoE+SSM model (Qwen3.6-35B-A3B) on an Intel iGPU; tester's verdict "use Vulkan". Qwen3.5 is also hybrid. Revisit later. |
 
+
+**Second pass (Pratham's Hugging Face list, 2026-09-25).** Speed rule on this laptop: decode ≈ ~45-55 GB/s ÷ bytes read per token, so "Gemma E4B speed" (~14 tok/s) means a dense model of ~4B or smaller (Q4 file ≤ ~3 GB), a Gemma "E" model, or a MoE with a small active part. 7-9B dense models **do run** (Qwen3.5-9B: 9.1 tok/s, 19 s/task, 17/23 = same as the 4B), just slower; 12B ≈ 7 tok/s (est.).
+
+| Verdict | Models |
+|---|---|
+| **Test next (normal speed)** | **NVIDIA Nemotron-3-Nano-4B** (`unsloth/NVIDIA-Nemotron-3-Nano-4B-GGUF`, Q4_K_M 2.90 GB, 3.97B, arch `nemotron_h` supported by build 11157; official NVIDIA, Mar 2026) |
+| Maybe (community, unverified) | `empero-ai/Qwen3.8-4B-Distill-GGUF` (2.78 GB, Qwen3.5-4B architecture). **Misleading name: Qwen has no official Qwen3.8 4B** (official 3.8 = 27B, Flash-Next, 2.4T-A95B). `XHToken/Spark-X2.5-4B-GGUF` (2.60 GB, arch `spark2_5` supported; unknown lab) |
+| Runs, but slower (~7-9 tok/s) | Ornith-1.0/1.5-9B (Qwen3.5-9B-based, 5.78 GB; smallest Ornith is 9B), Qwen3.8-9B-Distill, gemma-4-12B coder/agentic forks, Llama 3.1 8B, Qwen3-8B, Parable 8B distills |
+| Old generation (superseded by Qwen3.5-4B / Gemma 4 E4B) | Qwen3-4B/8B, Qwen2.5-3B/7B/Coder-7B, Llama 3.x, Mistral 7B v0.2, Llama 2, PowerMoE-3b, EXAONE 3.5, DeepSeek-R1-0528-Qwen3-8B |
+| Community fine-tunes on older bases | Jan-v3.5-4B (Qwen3 base, agent/tool use), Parable-*-Claude-Fable-5 distills, TwIL-LM3 (SmolLM3-3B) |
+| Not usable in llama.cpp as listed | AWQ, FP8, NVFP4, MLX, BF16 safetensors repos (need a GGUF) |
+| Other | LFM2.5-8B-A1B (fast, not for coding, see above); Ternary-Bonsai-8B (likely needs the PrismML fork, 11.6) |
+| **PC candidate** | Ornith-1.5-35B-A3B (MoE; experts in system RAM, like Qwen3.6-35B-A3B in 11.2) |
+
 Sources: Hugging Face API; [grigio.org Panther Lake backend benchmark](https://grigio.org/benchmarking-llama-cpp-backends-on-intel-panther-lake-vulkan-vs-sycl-vs-openvino-vs-cpu/); [Phoronix OpenVINO 2026.1](https://www.phoronix.com/news/OpenVINO-2026.1-Released); [X: Gemma 4 MTP merged in llama.cpp](https://x.com/osanseviero/status/2063676865441665426); [X: Gemma 4 vs Qwen 3.5 small models](https://x.com/neural_avb/status/2040305916512440399).
 
 ## 13. Glossary and sources
@@ -1235,3 +1249,4 @@ Sources: Hugging Face API; [grigio.org Panther Lake backend benchmark](https://g
 | 2026-09-24 | Claude Code | v25: milestones 3-5 built (`lab report` tested; `lab needle`, `lab bench` not yet run); 6-model comparison (9.4b): Gemma 4 E4B 19/23, Qwen 4B 17/23 (139 correct/h), 9B 17/23, 2B 9/23, Phi-4-mini 7/23; provisional verdict; Q8_0 run stopped early |
 | 2026-09-25 | Claude Code | v26: harness complete. Q8_0 finished (15/23: lower than Q4 → 1-repeat noise is ±2-3 tasks); `lab needle` tested (4K/16K found, 16K prefill 178 s, 32K Vulkan `ErrorDeviceLost`); `lab bench` tested (batch-size hypothesis rejected); needle errors now stored as `found: null`; report chart labels show pass rate; provisional laptop verdict in 9.8 |
 | 2026-09-25 | Claude Code | v27: Hugging Face + X search for laptop models (12.6): try Gemma 4 E4B QAT + MTP (4.22 GB) and Qwen3.5-4B MTP; skipped LFM2.5-8B-A1B (not for coding), 9B+ forks, 26B+ models, community distills, OpenVINO backend (fails on hybrid models) |
+| 2026-09-25 | Claude Code | v28: filtered Pratham's Hugging Face list by laptop speed (12.6): test Nemotron-3-Nano-4B next; Ornith smallest is 9B (runs ~9 tok/s, slower); "Qwen3.8-4B-Distill" is a community model (no official Qwen3.8 4B); Ornith-1.5-35B-A3B noted as PC candidate |

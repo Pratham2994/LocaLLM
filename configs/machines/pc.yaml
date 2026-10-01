@@ -1,0 +1,28 @@
+# PC machine file (RTX 5070 12 GB, Core Ultra 7 265K, 32 GB DDR5). See LOCAL_LLM_LAB.md 3.2 and 11.
+# TEMPLATE written on the laptop: nothing here is measured yet. On the PC:
+#   1. set `hostname` to the output of the `hostname` command (the harness picks this file by it);
+#   2. check the folders exist;
+#   3. measure the best `threads` with `uv run lab bench` and replace the first guesses.
+hostname: CHANGE-ME
+notes: PC. RTX 5070 12 GB (CUDA), Core Ultra 7 265K, 32 GB DDR5. Monitor on the motherboard port to keep all 12 GB VRAM free.
+
+host: 127.0.0.1
+port: 8080
+health_timeout_s: 300
+
+model_dirs:
+  - D:\Code\Inference\models
+
+backends:
+  cuda:
+    dir: D:\Code\Inference\llama-cuda     # llama.cpp win-cuda zip + matching cudart zip, same folder
+    threads: 8                            # first guess; with all layers on the GPU it matters little
+    args: ["-ngl", "99"]
+  cpu:
+    dir: D:\Code\Inference\llama-cuda     # same build with -ngl 0 = CPU only
+    threads: 8                            # first guess: 265K has 8 performance cores; measure
+    args: ["-ngl", "0"]
+
+tools:
+  node: node     # JS tasks; if missing, those runs are stored as "not graded"
+  cxx: g++       # C++ task; same

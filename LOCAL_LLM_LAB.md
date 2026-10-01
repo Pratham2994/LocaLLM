@@ -1,7 +1,7 @@
 # Local LLM Lab: Master File
 
-> **Version:** 31 · **Last updated:** 2026-09-25 · **Owner:** Pratham
-> **Current machine:** Laptop (ASUS Zenbook 14) · **Current phase:** 4 done (harness complete); 5 next (3 repeats per task)
+> **Version:** 32 · **Last updated:** 2026-10-01 · **Owner:** Pratham
+> **Current machine:** moving from laptop to **PC** (RTX 5070) · **Current phase:** laptop work finished (verdict in 9.8); **next: PC migration runbook, section 11.0**
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
 
@@ -73,6 +73,8 @@ You are continuing a learning project on running LLMs locally. Rules:
 - [x] llama.cpp build **11157** (commit 53ed051ce, version 0.5.0-dev). Vulkan build sees `Vulkan0: Intel(R) Arc(TM) 130T GPU (8GB) (8972 MiB, 8267 MiB free)`
 
 ### Next actions (in order)
+> **2026-10-01: the next action is the PC migration (section 11.0).** The numbered laptop items below are old and optional (driver update, power settings); they no longer block anything.
+
 1. [ ] Phase 0.1: Intel graphics driver update + reboot
 2. [ ] Phase 0.2: power settings
 3. [ ] Phase 0.3: note idle RAM "In use"
@@ -1074,6 +1076,45 @@ Swap point (9B Q4_K_M): -c = ___ · Needle 4K/16K/32K: **found / found / GPU cra
 
 ## 11. PC plan (after the laptop week)
 
+### 11.0 PC migration runbook (written 2026-10-01 on the laptop; nothing on the PC is installed yet)
+
+**How the context travels:** the private GitHub repo `https://github.com/Pratham2994/LocaLLM` holds this file, `CLAUDE.md` (which imports this file, so Claude Code loads it in every session), the harness code, the task set and all laptop results (`results/runs.jsonl`, `report.md`). The laptop chat itself does not travel and is not needed. **Do not copy** `.venv` (rebuilt by `uv sync`), `results/logs` (laptop-only), the laptop's `llama-cpu` / `llama-vulkan` folders (the PC needs the CUDA build) or the models (re-download; the PC uses bigger ones).
+
+**Step 1. Install on the PC** (Pratham, PowerShell; `winget` asks for confirmation):
+```powershell
+winget install --id Git.Git -e
+winget install --id astral-sh.uv -e           # uv installs Python 3.14 itself (from .python-version)
+winget install --id OpenJS.NodeJS.LTS -e      # needed for the 3 JavaScript tasks
+```
+Then install Claude Code: https://docs.claude.com/en/docs/claude-code/overview
+Optional: a C++ compiler `g++` on PATH for the one C++ task (without it that task is stored as "not graded"). Close and reopen the terminal after installing. Update the NVIDIA driver, then check `nvidia-smi` shows the RTX 5070 with ~12 GB.
+
+**Step 2. Get the project:**
+```powershell
+New-Item -ItemType Directory -Force D:\Code\Inference\models, D:\Code\Inference\llama-cuda | Out-Null
+cd D:\Code\Inference
+git clone https://github.com/Pratham2994/LocaLLM.git lab
+cd lab
+uv sync            # creates .venv and installs requests, pyyaml, matplotlib
+uv run lab --machine pc selftest   # must end with "0 problem(s)"; warnings = a tool (node / g++) is missing
+```
+(`--machine pc` is needed only until the real hostname is written into `configs/machines/pc.yaml` in step 4.) (If there is no D: drive, use another folder and tell Claude Code; paths live only in `configs/machines/pc.yaml`.)
+
+**Step 3. Start Claude Code in `D:\Code\Inference\lab` and paste this handoff prompt:**
+> We are now on the PC (RTX 5070 12 GB, Core Ultra 7 265K, 32 GB RAM). This is a fresh machine: only git, uv, Node and this repo are installed. Read `LOCAL_LLM_LAB.md` fully (it is loaded through `CLAUDE.md`). Follow section 11.0 from step 4. Explain each step in simple words and wait for me where a download or install needs me. Keep the lab file updated as its rules say.
+
+**Step 4. Claude Code on the PC does (in order, verifying each):**
+1. Run `hostname` and `nvidia-smi`; write the hostname into `configs/machines/pc.yaml` (replace `CHANGE-ME`); update section 3.2 with real values.
+2. llama.cpp: from https://github.com/ggml-org/llama.cpp/releases download the newest `llama-bXXXX-bin-win-cuda-12.x-x64.zip` **and** the matching `cudart-llama-bin-win-cuda-12.x-x64.zip` (RTX 50 needs CUDA 12.8+); unzip both into `D:\Code\Inference\llama-cuda`. Check `.\llama-server.exe --version` and `--list-devices` (must list the RTX 5070). Record the build number. The build will be newer than the laptop's 11157: **run `uv run lab probe` on the first config and compare the JSON fields with 9.4a before trusting the harness**; check `--help` still has `-rea`, `--spec-type draft-mtp`, `--cache-ram`.
+3. `hf` CLI for downloads: `uv tool install huggingface_hub` (gives `hf`). If downloads fail with connection resets, see 5.2 (Cloudflare WARP, exact file names, `curl -4`).
+4. **Baseline first (same models as the laptop, so the two machines compare):** download `unsloth/gemma-4-E4B-it-qat-GGUF` files `gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf` and `MTP/mtp-gemma-4-E4B-it-Q4_0.gguf`, and `unsloth/Qwen3.5-4B-GGUF` file `Qwen3.5-4B-Q4_K_M.gguf`, into `D:\Code\Inference\models`. Copy the three active laptop configs to new files with `backend: cuda` and names ending `-cuda-…` (config names key the results; the laptop rows stay under machine `laptop`). Run them with `--repeats 1`, then `uv run lab report`. Expect the same pass rates (±2-3 tasks of noise) at several times the speed.
+5. `uv run lab bench` on the baseline to find the best `threads` for `cuda` and `cpu`; put them in `pc.yaml`.
+6. **Then the PC models** (12 GB VRAM + 32 GB RAM; one config + one run each; sizes in 11.2 and 12.6): Gemma 4 12B QAT (`google/gemma-4-12B-it-qat-q4_0-gguf`, 6.98 GB, all on GPU), Qwen3.5-9B Q8_0, Qwen3.8-27B GSQ-RCO IQ2_XS (8.4 GB), and the MoE models that keep experts in system RAM with `--n-cpu-moe`: Qwen3.6-35B-A3B Q4_K_M (~21 GB), Ornith-1.5-35B-A3B, Gemma 4 26B-A4B QAT. Verify every repo and file name on the Hugging Face API before downloading (12.6 shows how); skip uncensored / community re-uploads (5.1).
+7. Use 3 repeats for the final PC comparison (1 repeat = ±2-3 tasks of noise, 9.4b). Thinking on becomes affordable on the PC: test it on the bug and maths tasks.
+8. Write the PC findings in a new section 9.9 and the PC verdict in 9.10; add the daily-use commands for the PC (like 9.4c).
+
+**What will differ on the PC (do not assume laptop values):** threads (`-t`), prefill and decode speeds, the ~16K-token prompt limit and the 32K Vulkan crash (laptop iGPU only), Smart App Control state (check `HKLM\SYSTEM\CurrentControlSet\Control\CI\Policy` → `VerifiedAndReputablePolicyState`), free memory, and the llama.cpp build. Agent tools (Claude Code / Cline with a local model) were unusable on the laptop but may work on the PC: test with a measured prompt size first.
+
 ### 11.1 Setup
 1. Monitor on the motherboard (iGPU) → full 12 GB VRAM for models. Check with `nvidia-smi`.
 2. llama.cpp: newest release, `win-cuda` zip with the newest CUDA version (RTX 50 needs 12.8+) + matching `cudart` zip, unzipped into the same folder, e.g. `D:\Code\Inference\llama-cuda`.
@@ -1280,3 +1321,4 @@ Sources: Hugging Face API; [grigio.org Panther Lake backend benchmark](https://g
 | 2026-09-25 | Claude Code | v29: tested 2 downloads: Gemma 4 E4B QAT UD-Q4_K_XL 19/23 (tie with Q4_K_M; −1.2 GB memory, prefill +16%, decode −7% by clean `lab bench`); "Qwen3.8-4B-Distill" 11/23 (worse than Qwen3.5-4B); report quant label handles `UD-Q4_K_XL` |
 | 2026-09-25 | Claude Code | v30: deleted all models except Qwen3.5-4B Q4_K_M and Gemma 4 E4B QAT (+ MTP helper), ~40 GB freed; configs of deleted models moved to `configs/archive/` so `lab run` still loads |
 | 2026-09-25 | Claude Code | v31: MTP tested: Gemma QAT + MTP 19/23, 25.7 tok/s, 218 correct/h (best); configs support `draft_model` / `spec_type`; **fixed log parser** (Gemma has 2 KV caches: 296 MiB not 40 MiB; second model load overwrote buffers); corrected Gemma memory (5.94 / 4.73 GiB); daily-use commands verified (9.4c) |
+| 2026-10-01 | Claude Code | v32: PC migration prepared: runbook + handoff prompt (11.0), `configs/machines/pc.yaml` template (hostname to fill), missing tools (node / g++) now give "not graded" instead of a failure; repo pushed to private GitHub `Pratham2994/LocaLLM` |

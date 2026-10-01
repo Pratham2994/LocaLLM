@@ -8,6 +8,8 @@ strike them through and add the new value.
 
 @LOCAL_LLM_LAB.md
 
+**New machine (PC)?** Follow `LOCAL_LLM_LAB.md` section 11.0 (migration runbook). Fill `hostname` in `configs/machines/pc.yaml` first, or the harness cannot pick a machine file.
+
 ## Harness quick reference
 
 ```powershell

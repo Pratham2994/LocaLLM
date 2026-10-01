@@ -150,6 +150,9 @@ def _run(cmd: list[str], cwd: str, timeout_s: float) -> tuple[int | None, str]:
         if getattr(e, "winerror", None) == WIN_APP_CONTROL_BLOCKED:
             raise Blocked(f"Windows Smart App Control blocked {Path(cmd[0]).name}; "
                           "not graded (grade by hand, or run where SAC is off)") from e
+        if isinstance(e, FileNotFoundError):  # e.g. node or g++ not installed on this machine
+            raise Blocked(f"{cmd[0]!r} is not installed or not on PATH; not graded "
+                          "(install it, or set tools in the machine file)") from e
         return None, f"could not start {cmd[0]!r}: {e}"
     return p.returncode, (p.stdout + p.stderr)[-DETAIL_CHARS:]
 

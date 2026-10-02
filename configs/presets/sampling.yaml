@@ -18,3 +18,15 @@ gemma4-card:              {temperature: 1.0, top_p: 0.95, top_k: 64, min_p: 0.0,
 # Phi-4-mini-instruct: no thinking mode, no sampling in the GGUF; the model card's example uses
 # greedy decoding (temperature 0). Fine here: it is not a thinking model.
 phi4-mini-card:           {temperature: 0.0, top_p: 1.0,  top_k: 40, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+
+# PC models (model cards read 2026-10-02).
+# Qwen3.8-27B thinking mode: temp 1.0, top_p 0.95, top_k 20, presence 0 (its non-thinking values equal qwen35-nothink-general).
+qwen38-think:             {temperature: 1.0, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+# Ornith-1.5 (9B and 35B-A3B): "for general tasks" temp 0.6, top_p 0.95, top_k 20.
+ornith15-card:            {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+# empero-ai Qwen3.8-35B-A3B-Distill: temp 0.6, top_p 0.95, top_k 20 (same values as Ornith).
+empero-distill-card:      {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+# poolside Laguna XS 2.1: temp 1.0, top_k 20, top_p 1.
+laguna-card:              {temperature: 1.0, top_p: 1.0,  top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+# OpenAI gpt-oss-20b: temp 1.0, top_p 1.0, no top_k (0 = off in llama.cpp).
+gptoss-card:              {temperature: 1.0, top_p: 1.0,  top_k: 0,  min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}

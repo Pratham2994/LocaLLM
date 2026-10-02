@@ -1,0 +1,9 @@
+name: qwen35-4b-q4km-vulkanpc-nothink
+model: Qwen3.5-4B-Q4_K_M.gguf
+backend: vulkan-pc                  # backend A/B: same GPU, build and settings as -cuda-nothink, Vulkan instead of CUDA
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general
+repeats: 5
+max_tokens: 4096

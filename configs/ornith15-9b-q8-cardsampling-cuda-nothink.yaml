@@ -1,0 +1,9 @@
+name: ornith15-9b-q8-cardsampling-cuda-nothink
+model: Ornith-1.5-9B-Q8_0.gguf              # ornith-ai/Ornith-1.5-9B-GGUF, 9.79 GB, all on GPU
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: ornith15-card                     # the card's own values (the first run used the Qwen3.5 base model's values)
+repeats: 5
+max_tokens: 4096

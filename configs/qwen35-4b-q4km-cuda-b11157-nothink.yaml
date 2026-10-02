@@ -1,0 +1,9 @@
+name: qwen35-4b-q4km-cuda-b11157-nothink
+model: Qwen3.5-4B-Q4_K_M.gguf
+backend: cuda-b11157                # build A/B: same GPU and settings as -cuda-nothink, old llama.cpp build
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general
+repeats: 5
+max_tokens: 4096

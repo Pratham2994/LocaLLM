@@ -1,0 +1,9 @@
+name: gemma4-12b-qat-udq4kxl-cuda-nothink
+model: gemma-4-12B-it-qat-UD-Q4_K_XL.gguf   # unsloth/gemma-4-12B-it-qat-GGUF, 6.72 GB, all on GPU
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: gemma4-card                       # Google's card gives the same values for the 12B: temp 1.0, top_p 0.95, top_k 64
+repeats: 5
+max_tokens: 4096

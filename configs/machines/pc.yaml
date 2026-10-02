@@ -1,25 +1,36 @@
 # PC machine file (RTX 5070 12 GB, Core Ultra 7 265K, 32 GB DDR5). See LOCAL_LLM_LAB.md 3.2 and 11.
-# TEMPLATE written on the laptop: nothing here is measured yet. On the PC:
-#   1. set `hostname` to the output of the `hostname` command (the harness picks this file by it);
-#   2. check the folders exist;
-#   3. measure the best `threads` with `uv run lab bench` and replace the first guesses.
-hostname: CHANGE-ME
-notes: PC. RTX 5070 12 GB (CUDA), Core Ultra 7 265K, 32 GB DDR5. Monitor on the motherboard port to keep all 12 GB VRAM free.
+# Hostname and folders checked on the PC (2026-10-01). Still to do:
+#   measure the best `threads` with `uv run lab bench` and replace the first guesses.
+# The base folder on the PC is D:\02_Code\Inference (the laptop used D:\Code\Inference).
+hostname: Black-Vector
+notes: PC. RTX 5070 12 GB (CUDA), Core Ultra 7 265K, 32 GB DDR5. Monitor stays on the RTX 5070 (Pratham's normal use), so the desktop takes ~1.5 GB of the 12 GB VRAM.
 
 host: 127.0.0.1
 port: 8080
 health_timeout_s: 300
 
 model_dirs:
-  - D:\Code\Inference\models
+  - D:\02_Code\Inference\models
 
 backends:
   cuda:
-    dir: D:\Code\Inference\llama-cuda     # llama.cpp win-cuda zip + matching cudart zip, same folder
+    dir: D:\02_Code\Inference\llama-cuda  # llama.cpp win-cuda zip + matching cudart zip, same folder
     threads: 8                            # first guess; with all layers on the GPU it matters little
     args: ["-ngl", "99"]
+  cuda-moe:
+    dir: D:\02_Code\Inference\llama-cuda  # same build; for MoE models with experts in system RAM (--n-cpu-moe in the config)
+    threads: 12                           # measured 2026-10-01, Gemma 4 26B-A4B, n-cpu-moe 10: tg128 66 / 77 / 84 / 90 / 90 / 88 tok/s at 4 / 6 / 8 / 12 / 16 / 20 threads
+    args: ["-ngl", "99"]
+  cuda-b11157:
+    dir: D:\02_Code\Inference\llama-cuda-b11157  # the laptop's llama.cpp build, CUDA zip: only for the build A/B test (lab file 9.9)
+    threads: 8
+    args: ["-ngl", "99"]
+  vulkan-pc:
+    dir: D:\02_Code\Inference\llama-vulkan       # b11321 Vulkan zip on the RTX 5070: only for the backend A/B test (lab file 9.9)
+    threads: 8
+    args: ["-ngl", "99", "-dev", "Vulkan0"]      # Vulkan0 = RTX 5070; Vulkan1 is the Intel iGPU
   cpu:
-    dir: D:\Code\Inference\llama-cuda     # same build with -ngl 0 = CPU only
+    dir: D:\02_Code\Inference\llama-cuda  # same build with -ngl 0 = CPU only
     threads: 8                            # first guess: 265K has 8 performance cores; measure
     args: ["-ngl", "0"]
 

@@ -1,0 +1,11 @@
+name: gemma4-12b-qat-mtp-cuda-nothink
+model: gemma-4-12B-it-qat-UD-Q4_K_XL.gguf   # unsloth/gemma-4-12B-it-qat-GGUF, 6.72 GB, all on GPU
+draft_model: mtp-gemma-4-12B-it-Q4_0.gguf   # MTP helper from the same repo (MTP/ folder), 0.25 GB
+spec_type: draft-mtp
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: gemma4-card
+repeats: 5
+max_tokens: 4096

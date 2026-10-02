@@ -1,0 +1,9 @@
+name: gemma4-e4b-qat-udq4kxl-cuda-nothink
+model: gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+backend: cuda                               # PC baseline: same model and settings as the laptop config
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: gemma4-card
+repeats: 3
+max_tokens: 4096

@@ -1,0 +1,10 @@
+name: qwen38-27b-gsqrco-iq2xs-mtp-cuda-nothink
+model: Qwen3.8-27B-GSQ-RCO-IQ2_XS-mtp.gguf  # ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF, 2.5 bpw, 8.77 GB, all on GPU
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general            # Qwen3.8 card: same non-thinking values as Qwen3.5
+repeats: 5
+max_tokens: 4096
+server_args: ["--spec-type", "draft-mtp"]   # the MTP head is inside this file (no separate draft model)

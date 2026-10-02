@@ -1,0 +1,9 @@
+name: gemma4-e4b-qat-udq4kxl-cuda-b11157-nothink
+model: gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+backend: cuda-b11157                # build A/B: same GPU and settings as -cuda-nothink, old llama.cpp build
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: gemma4-card
+repeats: 5
+max_tokens: 4096

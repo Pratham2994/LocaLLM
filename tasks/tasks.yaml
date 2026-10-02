@@ -1227,3 +1227,786 @@ tasks:
     - `timeout` is now in seconds, not milliseconds.
     - Python 3.12 or newer is required.
     - New `retry_jitter` option.
+
+# =====================================================================  hard tier
+# Added 2026-10-02 on the PC: the best models pass 21-22 of the 23 tasks above, so those
+# tasks cannot rank them. These ten have more rules per task and more traps. Written by
+# Claude Code; for Pratham to review (LOCAL_LLM_LAB.md section 8). Ids start with `hard-`.
+
+- id: hard-py-ttl-cache
+  category: small_function
+  thinking: off
+  check: python_tests
+  entry: TTLCache
+  notes: Three traps. get() must not extend the expiry; expired entries are purged BEFORE evicting, so a live least-recently-used entry survives; an entry is expired at exactly now == expiry.
+  prompt: |
+    Write a Python class `TTLCache` for a pricing service. All times are whole seconds passed
+    in by the caller as `now`; calls always come with non-decreasing `now`.
+
+    - `TTLCache(capacity: int, ttl: int)`: holds at most `capacity` entries.
+    - `put(key, value, now: int) -> None`: stores or replaces the value. The entry's expiry
+      time becomes `now + ttl` and the key becomes the most recently used.
+    - `get(key, now: int)`: returns the value, or `None` if the key is missing or expired.
+      An entry is expired when `now >= expiry time`. A successful `get` makes the key the
+      most recently used, but does NOT change its expiry time.
+    - When `put` adds a NEW key and the cache is full: first remove every entry that is
+      expired at `now`; only if the cache is still full, remove the least recently used entry.
+    - `size(now: int) -> int`: the number of entries that are not expired at `now`.
+
+    Use only the standard library. Reply with one ```python code block containing the
+    complete class. Keep any explanation short and put it after the code block.
+  tests: |
+    c = TTLCache(2, 10)
+    c.put("a", 1, 0)
+    c.put("b", 2, 1)
+    assert c.get("a", 2) == 1
+    c.put("c", 3, 3)                       # full, nothing expired: evict the LRU entry, b
+    assert c.get("b", 3) is None
+    assert c.get("a", 3) == 1 and c.get("c", 3) == 3
+    assert c.get("a", 9) == 1, "a get must not shorten the expiry"
+    assert c.get("a", 10) is None, "expired at exactly now == expiry"
+    assert c.size(10) == 1
+
+    c = TTLCache(2, 5)
+    c.put("x", 1, 0)
+    assert c.get("x", 4) == 1
+    assert c.get("x", 5) is None, "get must not extend the expiry"
+
+    c = TTLCache(2, 5)
+    c.put("x", 1, 0)
+    c.put("y", 2, 1)
+    c.put("x", 9, 4)                       # existing key: new value, new expiry, no eviction
+    assert c.get("y", 4) == 2
+    assert c.get("x", 8) == 9
+    assert c.get("x", 9) is None
+
+    c = TTLCache(2, 10)
+    c.put("old", 1, 0)                     # expires at 10
+    c.put("live", 2, 5)                    # expires at 15
+    assert c.get("old", 6) == 1            # old is now most recently used, live is the LRU
+    c.put("new", 3, 10)                    # old is expired: purge it, keep live
+    assert c.get("live", 10) == 2, "expired entries must be removed before the LRU entry"
+    assert c.get("new", 10) == 3
+    assert c.get("old", 10) is None
+    assert c.size(10) == 2
+
+    c = TTLCache(1, 3)
+    c.put("a", 1, 0)
+    c.put("b", 2, 1)
+    assert c.get("a", 1) is None and c.get("b", 1) == 2
+
+    c = TTLCache(2, 5)
+    c.put("z", 0, 0)
+    assert c.get("z", 1) == 0 and c.get("z", 1) is not None
+    assert c.size(0) == 1 and c.size(5) == 0
+  reference: |
+    ```python
+    from collections import OrderedDict
+
+
+    class TTLCache:
+        def __init__(self, capacity: int, ttl: int):
+            self.capacity = capacity
+            self.ttl = ttl
+            self._data = OrderedDict()  # key -> (value, expiry); last = most recently used
+
+        def put(self, key, value, now: int) -> None:
+            if key not in self._data and len(self._data) >= self.capacity:
+                for k in [k for k, (_, exp) in self._data.items() if now >= exp]:
+                    del self._data[k]
+                if len(self._data) >= self.capacity:
+                    self._data.popitem(last=False)
+            self._data[key] = (value, now + self.ttl)
+            self._data.move_to_end(key)
+
+        def get(self, key, now: int):
+            item = self._data.get(key)
+            if item is None or now >= item[1]:
+                return None
+            self._data.move_to_end(key)
+            return item[0]
+
+        def size(self, now: int) -> int:
+            return sum(1 for _, exp in self._data.values() if now < exp)
+    ```
+  wrong: |
+    ```python
+    from collections import OrderedDict
+
+
+    class TTLCache:
+        def __init__(self, capacity, ttl):
+            self.capacity = capacity
+            self.ttl = ttl
+            self._data = OrderedDict()
+
+        def put(self, key, value, now):
+            if key not in self._data and len(self._data) >= self.capacity:
+                self._data.popitem(last=False)
+            self._data[key] = (value, now + self.ttl)
+            self._data.move_to_end(key)
+
+        def get(self, key, now):
+            item = self._data.get(key)
+            if item is None or now >= item[1]:
+                return None
+            self._data.move_to_end(key)
+            return item[0]
+
+        def size(self, now):
+            return sum(1 for _, exp in self._data.values() if now < exp)
+    ```
+
+- id: hard-py-semver-range
+  category: small_function
+  thinking: off
+  check: python_tests
+  entry: satisfies
+  notes: Traps are numeric comparison (1.10.0 > 1.9.0), the caret rule for 0.x and 0.0.x, and OR between alternatives with AND inside one.
+  prompt: |
+    Write a Python function `satisfies(version: str, range_: str) -> bool` for a package
+    installer.
+
+    - A version is `MAJOR.MINOR.PATCH` with non-negative whole numbers, compared number by
+      number (so `1.10.0` is greater than `1.9.0`).
+    - A range is one or more alternatives separated by `||`. The version satisfies the range
+      if it satisfies at least one alternative.
+    - An alternative is one or more comparators separated by spaces. The version must satisfy
+      all of them.
+    - Comparators:
+      - `1.2.3` or `=1.2.3`: exactly that version
+      - `>1.2.3`, `>=1.2.3`, `<1.2.3`, `<=1.2.3`
+      - `~1.2.3`: `>=1.2.3` and `<1.3.0`
+      - `^1.2.3`: `>=1.2.3` and `<2.0.0`
+      - `^0.2.3`: `>=0.2.3` and `<0.3.0` (major is 0: only the patch may grow)
+      - `^0.0.3`: `>=0.0.3` and `<0.0.4` (major and minor are 0: nothing may grow)
+    - Extra spaces around `||` and between comparators are allowed.
+
+    Use only the standard library. Reply with one ```python code block containing the
+    complete code. Keep any explanation short and put it after the code block.
+  tests: |
+    assert satisfies("1.2.3", "1.2.3")
+    assert satisfies("1.2.3", "=1.2.3")
+    assert not satisfies("1.2.4", "1.2.3")
+    assert satisfies("1.10.0", ">1.9.0"), "compare numbers, not text"
+    assert not satisfies("1.9.0", ">=1.10.0")
+    assert satisfies("2.0.0", ">=1.2.3 <=2.0.0")
+    assert not satisfies("2.0.1", ">=1.2.3 <=2.0.0")
+    assert satisfies("1.2.9", "~1.2.3")
+    assert not satisfies("1.3.0", "~1.2.3")
+    assert not satisfies("1.2.2", "~1.2.3")
+    assert satisfies("1.9.9", "^1.2.3")
+    assert not satisfies("2.0.0", "^1.2.3")
+    assert satisfies("0.2.9", "^0.2.3")
+    assert not satisfies("0.3.0", "^0.2.3"), "caret with major 0"
+    assert satisfies("0.0.3", "^0.0.3")
+    assert not satisfies("0.0.4", "^0.0.3"), "caret with major 0 and minor 0"
+    assert satisfies("0.3.5", ">=1.0.0 <2.0.0 || ^0.3.1")
+    assert satisfies("1.5.0", ">=1.0.0 <2.0.0   ||   ^0.3.1")
+    assert not satisfies("0.4.0", ">=1.0.0 <2.0.0 || ^0.3.1")
+    assert not satisfies("2.5.0", ">=1.0.0 <2.0.0||^0.3.1")
+    assert satisfies("10.0.0", ">9.9.9  <10.0.1")
+  reference: |
+    ```python
+    def _parse(v: str) -> tuple[int, int, int]:
+        major, minor, patch = v.split(".")
+        return int(major), int(minor), int(patch)
+
+
+    def _comparator(version: tuple[int, int, int], comp: str) -> bool:
+        if comp.startswith("^"):
+            low = _parse(comp[1:])
+            if low[0] > 0:
+                high = (low[0] + 1, 0, 0)
+            elif low[1] > 0:
+                high = (0, low[1] + 1, 0)
+            else:
+                high = (0, 0, low[2] + 1)
+            return low <= version < high
+        if comp.startswith("~"):
+            low = _parse(comp[1:])
+            return low <= version < (low[0], low[1] + 1, 0)
+        for op in (">=", "<=", ">", "<", "="):
+            if comp.startswith(op):
+                other = _parse(comp[len(op):])
+                return {
+                    ">=": version >= other, "<=": version <= other,
+                    ">": version > other, "<": version < other, "=": version == other,
+                }[op]
+        return version == _parse(comp)
+
+
+    def satisfies(version: str, range_: str) -> bool:
+        v = _parse(version)
+        return any(
+            all(_comparator(v, comp) for comp in alternative.split())
+            for alternative in range_.split("||")
+        )
+    ```
+  wrong: |
+    ```python
+    def _parse(v):
+        return tuple(int(x) for x in v.split("."))
+
+
+    def _comparator(version, comp):
+        if comp.startswith("^"):
+            low = _parse(comp[1:])
+            return low <= version < (low[0] + 1, 0, 0)
+        if comp.startswith("~"):
+            low = _parse(comp[1:])
+            return low <= version < (low[0], low[1] + 1, 0)
+        for op in (">=", "<=", ">", "<", "="):
+            if comp.startswith(op):
+                other = _parse(comp[len(op):])
+                return {">=": version >= other, "<=": version <= other,
+                        ">": version > other, "<": version < other, "=": version == other}[op]
+        return version == _parse(comp)
+
+
+    def satisfies(version, range_):
+        v = _parse(version)
+        return any(all(_comparator(v, c) for c in alt.split()) for alt in range_.split("||"))
+    ```
+
+- id: hard-py-build-order
+  category: small_function
+  thinking: off
+  check: python_tests
+  entry: build_order
+  notes: Traps are targets that appear only as a dependency, and the tie-break "smallest name that is ready NOW" (a level-by-level sort or a depth-first walk gives a different order). Cycles must raise.
+  prompt: |
+    Write a Python function `build_order(deps: dict[str, list[str]]) -> list[str]` for a
+    build tool. `deps` maps each target to the list of targets it depends on.
+
+    - Return every target exactly once, each one after all of its dependencies. A name that
+      appears only inside a dependency list is also a target (with no dependencies).
+    - The order must be deterministic: at every step, output the alphabetically smallest
+      target whose dependencies have all been output already.
+    - If the dependencies contain a cycle (including a target that depends on itself),
+      raise `ValueError`.
+
+    Use only the standard library. Reply with one ```python code block containing the
+    complete code. Keep any explanation short and put it after the code block.
+  tests: |
+    assert build_order({}) == []
+    assert build_order({"app": []}) == ["app"]
+    assert build_order({"app": ["lib"], "lib": ["core"]}) == ["core", "lib", "app"]
+    assert build_order({"b": ["a"], "c": [], "a": []}) == ["a", "b", "c"], "smallest ready target at every step"
+    assert build_order({"app": ["lib", "zeta"], "lib": [], "alpha": ["zeta"]}) == ["lib", "zeta", "alpha", "app"]
+    assert build_order({"z": [], "m": ["z"], "a": ["m"], "b": []}) == ["b", "z", "m", "a"]
+    assert build_order({"x": ["y", "y"], "y": []}) == ["y", "x"], "a repeated dependency is fine"
+    for bad in [{"a": ["a"]}, {"a": ["b"], "b": ["a"]}, {"a": ["b"], "b": ["c"], "c": ["a"], "d": []}]:
+        try:
+            build_order(bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"no ValueError for {bad!r}")
+    d = {"b": ["a"], "a": []}
+    build_order(d)
+    assert d == {"b": ["a"], "a": []}, "the input must not be changed"
+  reference: |
+    ```python
+    import heapq
+
+
+    def build_order(deps: dict[str, list[str]]) -> list[str]:
+        needs = {target: set(ds) for target, ds in deps.items()}
+        for ds in deps.values():
+            for d in ds:
+                needs.setdefault(d, set())
+        users: dict[str, list[str]] = {t: [] for t in needs}
+        for target, ds in needs.items():
+            for d in ds:
+                users[d].append(target)
+        ready = [t for t, ds in needs.items() if not ds]
+        heapq.heapify(ready)
+        order = []
+        while ready:
+            t = heapq.heappop(ready)
+            order.append(t)
+            for u in users[t]:
+                needs[u].discard(t)
+                if not needs[u]:
+                    heapq.heappush(ready, u)
+        if len(order) != len(needs):
+            raise ValueError("dependency cycle")
+        return order
+    ```
+  wrong: |
+    ```python
+    def build_order(deps):
+        order = []
+        seen = set()
+
+        def visit(t, stack):
+            if t in stack:
+                raise ValueError("cycle")
+            if t in seen:
+                return
+            seen.add(t)
+            for d in sorted(deps.get(t, [])):
+                visit(d, stack | {t})
+            order.append(t)
+
+        for t in sorted(deps):
+            visit(t, frozenset())
+        return order
+    ```
+
+- id: hard-js-apply-patch
+  category: small_function
+  thinking: off
+  check: js_tests
+  entry: applyPatch
+  notes: Traps are insert-versus-replace for `add` on an array, `-` and index == length, the `~1` / `~0` escapes, errors for missing targets, and not changing the input document.
+  prompt: |
+    Write a JavaScript function `applyPatch(doc, ops)` for a Node.js config service. `doc` is
+    any JSON value. `ops` is an array of operations `{ op, path, value }`, applied in order.
+    Return the new document. `doc` itself must NOT be modified.
+
+    Paths:
+    - `""` means the whole document. Otherwise a path is `/` followed by segments separated
+      by `/`, for example `/servers/0/port`.
+    - Inside a segment, `~1` stands for `/` and `~0` stands for `~`.
+    - A segment that addresses an array element must be a non-negative whole number.
+
+    Operations:
+    - `add`: on an object, set the member (replacing an existing one). On an array, INSERT
+      the value before the given index; the index may equal the array length, and `-` means
+      "append at the end". With path `""`, the value becomes the whole document.
+    - `remove`: delete the object member or the array element (later elements move up).
+      The target must exist.
+    - `replace`: set a new value. The target must exist.
+
+    Throw an `Error` for anything invalid: an unknown `op`, a parent that does not exist,
+    a missing target for `remove` or `replace`, or an array index out of range.
+
+    Do not use any library. Reply with one ```javascript code block containing the complete
+    function. Keep any explanation short and put it after the code block.
+  tests: |
+    const doc = { a: { b: [1, 2, 3] }, "x/y": 1, "m~n": 2 };
+    const frozen = JSON.stringify(doc);
+    const run = (ops) => {
+      const out = applyPatch(doc, ops);
+      assert.strictEqual(JSON.stringify(doc), frozen, "the input document was modified");
+      return out;
+    };
+    assert.deepStrictEqual(run([{ op: "add", path: "/a/b/1", value: 9 }]), { a: { b: [1, 9, 2, 3] }, "x/y": 1, "m~n": 2 });
+    assert.deepStrictEqual(run([{ op: "add", path: "/a/b/-", value: 9 }]).a.b, [1, 2, 3, 9]);
+    assert.deepStrictEqual(run([{ op: "add", path: "/a/b/3", value: 9 }]).a.b, [1, 2, 3, 9]);
+    assert.deepStrictEqual(run([{ op: "add", path: "/a/b/0", value: 9 }]).a.b, [9, 1, 2, 3]);
+    assert.deepStrictEqual(run([{ op: "replace", path: "/a/b/0", value: 7 }]).a.b, [7, 2, 3]);
+    assert.deepStrictEqual(run([{ op: "remove", path: "/a/b/1" }]).a.b, [1, 3]);
+    assert.deepStrictEqual(run([{ op: "add", path: "/a/c", value: { d: 1 } }]).a, { b: [1, 2, 3], c: { d: 1 } });
+    assert.deepStrictEqual(run([{ op: "add", path: "/a/b", value: "x" }]).a, { b: "x" });
+    assert.deepStrictEqual(run([{ op: "replace", path: "/x~1y", value: 5 }]), { a: { b: [1, 2, 3] }, "x/y": 5, "m~n": 2 });
+    assert.deepStrictEqual(run([{ op: "remove", path: "/m~0n" }]), { a: { b: [1, 2, 3] }, "x/y": 1 });
+    assert.deepStrictEqual(
+      run([{ op: "add", path: "/c", value: {} }, { op: "add", path: "/c/d", value: [0] }, { op: "add", path: "/c/d/-", value: 1 }, { op: "remove", path: "/a" }]),
+      { "x/y": 1, "m~n": 2, c: { d: [0, 1] } });
+    assert.deepStrictEqual(run([{ op: "add", path: "", value: 5 }]), 5);
+    assert.deepStrictEqual(run([]), doc);
+    for (const bad of [
+      [{ op: "remove", path: "/nope" }],
+      [{ op: "replace", path: "/a/zz", value: 1 }],
+      [{ op: "add", path: "/a/b/5", value: 1 }],
+      [{ op: "remove", path: "/a/b/3" }],
+      [{ op: "add", path: "/q/r", value: 1 }],
+      [{ op: "add", path: "/a/b/x", value: 1 }],
+      [{ op: "move", path: "/a", value: 1 }],
+    ]) {
+      assert.throws(() => applyPatch(doc, bad), Error, JSON.stringify(bad));
+      assert.strictEqual(JSON.stringify(doc), frozen, "the input document was modified");
+    }
+  reference: |
+    ```javascript
+    function applyPatch(doc, ops) {
+      let root = structuredClone(doc);
+      const segments = (path) => {
+        if (path === "") return [];
+        if (path[0] !== "/") throw new Error("bad path: " + path);
+        return path.slice(1).split("/").map((s) => s.replace(/~1/g, "/").replace(/~0/g, "~"));
+      };
+      const index = (seg, max, allowDash) => {
+        if (allowDash && seg === "-") return max;
+        if (!/^\d+$/.test(seg)) throw new Error("bad array index: " + seg);
+        const i = Number(seg);
+        if (i > max) throw new Error("array index out of range: " + seg);
+        return i;
+      };
+      const isObject = (x) => x !== null && typeof x === "object" && !Array.isArray(x);
+      for (const { op, path, value } of ops) {
+        if (!["add", "remove", "replace"].includes(op)) throw new Error("unknown op: " + op);
+        const segs = segments(path);
+        if (segs.length === 0) {
+          if (op === "remove") throw new Error("cannot remove the whole document");
+          root = structuredClone(value);
+          continue;
+        }
+        let parent = root;
+        for (const seg of segs.slice(0, -1)) {
+          if (Array.isArray(parent)) parent = parent[index(seg, parent.length - 1, false)];
+          else if (isObject(parent) && Object.hasOwn(parent, seg)) parent = parent[seg];
+          else throw new Error("missing parent: " + path);
+        }
+        const last = segs[segs.length - 1];
+        if (Array.isArray(parent)) {
+          if (op === "add") parent.splice(index(last, parent.length, true), 0, structuredClone(value));
+          else if (op === "remove") parent.splice(index(last, parent.length - 1, false), 1);
+          else parent[index(last, parent.length - 1, false)] = structuredClone(value);
+        } else if (isObject(parent)) {
+          if (op !== "add" && !Object.hasOwn(parent, last)) throw new Error("missing target: " + path);
+          if (op === "remove") delete parent[last];
+          else parent[last] = structuredClone(value);
+        } else {
+          throw new Error("missing parent: " + path);
+        }
+      }
+      return root;
+    }
+    ```
+  wrong: |
+    ```javascript
+    function applyPatch(doc, ops) {
+      const root = JSON.parse(JSON.stringify(doc));
+      for (const { op, path, value } of ops) {
+        const segs = path.split("/").slice(1).map((s) => s.replace(/~1/g, "/").replace(/~0/g, "~"));
+        let parent = root;
+        for (const seg of segs.slice(0, -1)) parent = parent[seg];
+        const last = segs[segs.length - 1];
+        if (op === "remove") {
+          if (Array.isArray(parent)) parent.splice(Number(last), 1);
+          else delete parent[last];
+        } else if (op === "add" || op === "replace") {
+          if (Array.isArray(parent) && last === "-") parent.push(value);
+          else parent[last] = value;
+        } else {
+          throw new Error("unknown op");
+        }
+      }
+      return root;
+    }
+    ```
+
+- id: hard-sql-city-champion
+  category: sql_regex
+  thinking: off
+  check: sql_result
+  fixture: shop
+  ordered: true
+  expected_sql: |
+    SELECT city, name, spend_pence FROM (
+      SELECT c.city AS city, c.name AS name, SUM(o.total_pence) AS spend_pence,
+             ROW_NUMBER() OVER (PARTITION BY c.city ORDER BY SUM(o.total_pence) DESC, c.name ASC) AS rn
+      FROM customers c JOIN orders o ON o.customer_id = c.id
+      WHERE o.status = 'paid' AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01'
+      GROUP BY c.id, c.city, c.name
+    ) WHERE rn = 1
+    ORDER BY city
+  notes: One row per city (best customer per group). Without the status filter Farah and Ben win their cities; without the year filter Chloe beats Asha in Leeds.
+  prompt: |
+    Given this SQLite schema:
+
+    ```sql
+    {{ddl}}
+    ```
+
+    Write one SQLite query that returns, for each city, the customer with the highest total
+    spend in the calendar year 2025, counting only orders with status 'paid'. If two customers
+    of a city have the same total, take the one whose name comes first alphabetically. Cities
+    where no customer has a paid order in 2025 do not appear. Return three columns: `city`,
+    `name` and `spend_pence`, ordered by `city` ascending.
+
+    Reply with the query in one ```sql code block.
+  reference: |
+    ```sql
+    WITH spend AS (
+      SELECT c.id, c.city, c.name, SUM(o.total_pence) AS spend_pence
+      FROM customers c
+      JOIN orders o ON o.customer_id = c.id
+      WHERE o.status = 'paid' AND strftime('%Y', o.order_date) = '2025'
+      GROUP BY c.id
+    )
+    SELECT s.city, s.name, s.spend_pence
+    FROM spend s
+    WHERE s.id = (
+      SELECT s2.id FROM spend s2 WHERE s2.city = s.city
+      ORDER BY s2.spend_pence DESC, s2.name ASC LIMIT 1
+    )
+    ORDER BY s.city;
+    ```
+  wrong: |
+    ```sql
+    SELECT c.city, c.name, MAX(t.spend_pence) AS spend_pence
+    FROM customers c
+    JOIN (SELECT customer_id, SUM(total_pence) AS spend_pence FROM orders
+          WHERE strftime('%Y', order_date) = '2025' GROUP BY customer_id) t ON t.customer_id = c.id
+    GROUP BY c.city
+    ORDER BY c.city;
+    ```
+
+- id: hard-sql-order-span
+  category: sql_regex
+  thinking: off
+  check: sql_result
+  fixture: shop
+  ordered: true
+  expected_sql: |
+    SELECT c.name AS name,
+           CAST(julianday(MAX(o.order_date)) - julianday(MIN(o.order_date)) AS INTEGER) AS span_days
+    FROM customers c JOIN orders o ON o.customer_id = c.id
+    WHERE o.status = 'paid' AND o.order_date >= '2025-01-01' AND o.order_date < '2026-01-01'
+    GROUP BY c.id, c.name
+    HAVING COUNT(*) >= 2
+    ORDER BY span_days DESC, c.name ASC
+  notes: Only Chloe (89) and Asha (73) qualify. Chloe's 2026 order, Dev's 2024 order, Ben's refunded and Farah's cancelled order each add a wrong row or a wrong span if a filter is missing.
+  prompt: |
+    Given this SQLite schema:
+
+    ```sql
+    {{ddl}}
+    ```
+
+    Write one SQLite query for customers who have at least two orders with status 'paid' in
+    the calendar year 2025. For each of them return `name` and `span_days`: the number of
+    days, as a whole number, between their first and their last paid order of 2025. Order by
+    `span_days` descending, then by `name` ascending.
+
+    Reply with the query in one ```sql code block.
+  reference: |
+    ```sql
+    SELECT c.name,
+           CAST(julianday(MAX(o.order_date)) - julianday(MIN(o.order_date)) AS INTEGER) AS span_days
+    FROM orders o
+    JOIN customers c ON c.id = o.customer_id
+    WHERE o.status = 'paid' AND o.order_date BETWEEN '2025-01-01' AND '2025-12-31'
+    GROUP BY c.id
+    HAVING COUNT(*) >= 2
+    ORDER BY span_days DESC, c.name;
+    ```
+  wrong: |
+    ```sql
+    SELECT c.name,
+           CAST(julianday(MAX(o.order_date)) - julianday(MIN(o.order_date)) AS INTEGER) AS span_days
+    FROM orders o
+    JOIN customers c ON c.id = o.customer_id
+    WHERE o.status = 'paid'
+    GROUP BY c.id
+    HAVING COUNT(*) >= 2
+    ORDER BY span_days DESC, c.name;
+    ```
+
+- id: hard-bug-py-allocate
+  category: bug_finding
+  thinking: both
+  check: python_tests
+  entry: allocate
+  notes: Three bugs. The sort is ascending (lowest priority first); `remaining = stock` changes the caller's dict; `>` refuses an order that fits exactly.
+  prompt: |
+    This Python module has three bugs. The docstring describes the correct behaviour.
+    Find the bugs and fix them.
+
+    ```python
+    from dataclasses import dataclass
+
+
+    @dataclass
+    class Order:
+        order_id: str
+        sku: str
+        qty: int
+        priority: int  # higher number = more urgent
+        allow_partial: bool = False
+
+
+    def allocate(orders, stock):
+        """Allocate warehouse stock to orders.
+
+        - Orders are served by priority, highest first. Orders with the same priority are
+          served in the order they appear in `orders`.
+        - An order is filled completely if enough stock is left for its SKU.
+        - If not enough is left, an order with allow_partial=True gets whatever is left
+          (if that is more than zero); any other order gets nothing.
+        - Returns (allocations, remaining): allocations maps order_id -> allocated quantity
+          (orders that got nothing are not in it); remaining maps sku -> units left.
+        - `stock` (sku -> units) must not be modified. An unknown SKU has zero stock.
+        """
+        allocations = {}
+        remaining = stock
+        for order in sorted(orders, key=lambda o: o.priority):
+            available = remaining.get(order.sku, 0)
+            if available > order.qty:
+                allocations[order.order_id] = order.qty
+                remaining[order.sku] = available - order.qty
+            elif order.allow_partial and available > 0:
+                allocations[order.order_id] = available
+                remaining[order.sku] = 0
+        return allocations, remaining
+    ```
+
+    Reply with one ```python code block containing the complete corrected module.
+    Keep any explanation short and put it after the code block.
+  tests: |
+    stock = {"bolt": 10, "nut": 4}
+    orders = [
+        Order("o1", "bolt", 6, priority=1),
+        Order("o2", "bolt", 6, priority=5),
+        Order("o3", "nut", 4, priority=1),
+        Order("o4", "bolt", 9, priority=3, allow_partial=True),
+        Order("o5", "gear", 1, priority=9, allow_partial=True),
+    ]
+    alloc, left = allocate(orders, stock)
+    assert stock == {"bolt": 10, "nut": 4}, "stock must not be modified"
+    assert alloc == {"o2": 6, "o4": 4, "o3": 4}, alloc
+    assert left.get("bolt", 0) == 0 and left.get("nut", 0) == 0 and left.get("gear", 0) == 0
+
+    alloc, left = allocate([Order("a", "nut", 4, 1)], {"nut": 4})
+    assert alloc == {"a": 4} and left.get("nut", 0) == 0, "an exact fit must be filled"
+
+    alloc, left = allocate(
+        [Order("first", "nut", 3, 2), Order("second", "nut", 3, 2), Order("third", "nut", 1, 2)],
+        {"nut": 4})
+    assert alloc == {"first": 3, "third": 1}, "same priority: served in input order"
+    assert left.get("nut", 0) == 0
+
+    alloc, left = allocate([Order("p", "nut", 5, 1, allow_partial=True), Order("q", "nut", 1, 1)], {"nut": 2})
+    assert alloc == {"p": 2} and left.get("nut", 0) == 0
+
+    alloc, left = allocate([], {"nut": 2})
+    assert alloc == {} and left.get("nut", 0) == 2
+  reference: |
+    ```python
+    from dataclasses import dataclass
+
+
+    @dataclass
+    class Order:
+        order_id: str
+        sku: str
+        qty: int
+        priority: int  # higher number = more urgent
+        allow_partial: bool = False
+
+
+    def allocate(orders, stock):
+        allocations = {}
+        remaining = dict(stock)
+        for order in sorted(orders, key=lambda o: -o.priority):
+            available = remaining.get(order.sku, 0)
+            if available >= order.qty:
+                allocations[order.order_id] = order.qty
+                remaining[order.sku] = available - order.qty
+            elif order.allow_partial and available > 0:
+                allocations[order.order_id] = available
+                remaining[order.sku] = 0
+        return allocations, remaining
+    ```
+  wrong: |
+    ```python
+    from dataclasses import dataclass
+
+
+    @dataclass
+    class Order:
+        order_id: str
+        sku: str
+        qty: int
+        priority: int
+        allow_partial: bool = False
+
+
+    def allocate(orders, stock):
+        allocations = {}
+        remaining = dict(stock)
+        for order in sorted(orders, key=lambda o: -o.priority):
+            available = remaining.get(order.sku, 0)
+            if available > order.qty:
+                allocations[order.order_id] = order.qty
+                remaining[order.sku] = available - order.qty
+            elif order.allow_partial and available > 0:
+                allocations[order.order_id] = available
+                remaining[order.sku] = 0
+        return allocations, remaining
+    ```
+
+- id: hard-explain-js-order
+  category: explain_code
+  lang: js
+  thinking: both
+  check: regex
+  patterns: ['^\W*A\W+G\W+J\W+C\W+D\W+I\W+F\W+E\W+B\W+H\W*$']
+  notes: Sync A G J; then the nextTick queue (C); then microtasks D I F (F is queued when D finishes, so it comes after I); E was scheduled with nextTick inside a microtask and runs when the microtask queue is empty; then timers in order B, H. Verified with Node 24 (CommonJS).
+  prompt: |
+    In what order does this Node.js script (a CommonJS file, run with `node script.cjs`)
+    print its letters?
+
+    ```javascript
+    console.log("A");
+    setTimeout(() => console.log("B"), 0);
+    process.nextTick(() => console.log("C"));
+    Promise.resolve()
+      .then(() => {
+        console.log("D");
+        process.nextTick(() => console.log("E"));
+      })
+      .then(() => console.log("F"));
+    (async () => {
+      console.log("G");
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      console.log("H");
+    })();
+    queueMicrotask(() => console.log("I"));
+    console.log("J");
+    ```
+
+    Reply with the ten letters in order on one line, separated by single spaces,
+    and nothing else.
+  reference: |
+    A G J C D I F E B H
+  wrong: |
+    A G J C D E I F B H
+
+- id: hard-math-cron-overlap
+  category: maths_logic
+  thinking: both
+  check: exact
+  expected: 17
+  extract: 'ANSWER:\s*(.+)'
+  notes: Job A runs at minutes 0, 7, 14, ...; job B at 5, 17, 29, ... They meet first at minute 77 and then every 84 minutes, and 77 + 84k < 1440 gives k = 0..16, so 17 times. Checked by brute force.
+  prompt: |
+    Two scheduled jobs run on the same server. Job A starts at 00:00 and then runs every
+    7 minutes. Job B starts at 00:05 and then runs every 12 minutes. Counting from 00:00
+    up to, but not including, 24:00 of the same day: in how many minutes of the day do both
+    jobs start in the same minute?
+
+    Show brief working, then give the final answer alone on the last line as `ANSWER: <number>`.
+  reference: |
+    A: t = 0 mod 7. B: t = 5 mod 12. First common minute is 77, then every 84 minutes.
+    77 + 84k < 1440 gives k = 0..16.
+    ANSWER: 17
+  wrong: |
+    1440 / 84 = 17.1, plus the first one.
+    ANSWER: 18
+
+- id: hard-math-retry-budget
+  category: maths_logic
+  thinking: both
+  check: exact
+  expected: 16
+  extract: 'ANSWER:\s*(.+)'
+  notes: Waits are 100, 200, 400, 800, 1600, 3200 (sum 6,300 ms), then 5,000 each. 10 more fit (56,300 ms); the 17th retry would make 61,300 ms. Checked by brute force.
+  prompt: |
+    An API client waits before each retry. The wait before the first retry is 100 ms. Each
+    later wait is double the one before it, but a wait is never longer than 5,000 ms.
+    What is the largest number of retries whose total waiting time is at most 60 seconds?
+
+    Show brief working, then give the final answer alone on the last line as `ANSWER: <number>`.
+  reference: |
+    100 + 200 + 400 + 800 + 1600 + 3200 = 6,300 ms for the first 6 retries; every later wait
+    is 5,000 ms. (60,000 - 6,300) / 5,000 = 10.74, so 10 more retries fit: 56,300 ms.
+    ANSWER: 16
+  wrong: |
+    60,000 / 5,000 = 12
+    ANSWER: 12

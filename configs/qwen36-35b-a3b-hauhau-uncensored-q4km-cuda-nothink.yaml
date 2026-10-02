@@ -1,0 +1,10 @@
+name: qwen36-35b-a3b-hauhau-uncensored-q4km-cuda-nothink
+model: Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive-Q4_K_M.gguf   # HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive, 21.17 GB, MoE
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general            # same values as its base, Qwen3.6-35B-A3B, so the two compare
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "26"]          # same split as the base model. NOT RUN YET (file not downloaded): check at load whether it has an MTP head; if yes, add "--spec-type", "draft-mtp"

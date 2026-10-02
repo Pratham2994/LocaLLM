@@ -25,6 +25,13 @@ def run_bench(cfg: RunConfig, machine: Machine, pp: str, tg: str, depth: str, re
            "-p", pp, "-n", tg, "-d", depth, "-r", str(reps), "-o", "jsonl"]
     if cfg.kv_cache != "f16":
         cmd += ["-ctk", cfg.kv_cache, "-ctv", cfg.kv_cache]
+    # A MoE config keeps some experts in system RAM; without the same split llama-bench
+    # over-fills the GPU and measures the spill into shared memory, not the model.
+    args = list(cfg.server_args)
+    for flag in ("--n-cpu-moe", "-ncmoe"):
+        if flag in args[:-1]:
+            cmd += ["-ncmoe", args[args.index(flag) + 1]]
+            break
     print(f"\n== bench: {cfg.name}\n   {' '.join(cmd)}", flush=True)
     proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8", errors="replace")
     if proc.returncode != 0:
@@ -42,4 +49,5 @@ def run_bench(cfg: RunConfig, machine: Machine, pp: str, tg: str, depth: str, re
 
 def bench_test_name(t: dict) -> str:
     name = f"pp{t.get('n_prompt')}" if t.get("n_prompt") else f"tg{t.get('n_gen')}"
-    return name + (f" @ d{t['n_depth']}" if t.get("n_depth") else "")
+    name += f" @ d{t['n_depth']}" if t.get("n_depth") else ""
+    return name + (f" ncmoe{t['n_cpu_moe']}" if t.get("n_cpu_moe") else "")

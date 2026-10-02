@@ -1,0 +1,9 @@
+name: qwen35-9b-q8-cuda-nothink
+model: Qwen3.5-9B-Q8_0.gguf                 # unsloth/Qwen3.5-9B-GGUF, 9.53 GB, all on GPU
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general
+repeats: 5
+max_tokens: 4096

@@ -1,0 +1,12 @@
+name: gemma4-26b-a4b-qat-mtp-cuda-nothink
+model: gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf   # unsloth/gemma-4-26B-A4B-it-qat-GGUF, 14.25 GB, MoE (4B active)
+draft_model: mtp-gemma-4-26B-A4B-it-Q4_0.gguf   # MTP helper from the same repo (MTP/ folder), 0.25 GB
+spec_type: draft-mtp
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: gemma4-card
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "12"]              # experts of 12 layers in system RAM (~408 MiB each); ~9.5 GiB of weights + KV on the GPU

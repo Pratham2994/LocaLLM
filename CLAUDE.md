@@ -54,3 +54,8 @@ While a run is in progress, `uv run` may fail to reinstall `lab.exe` (locked); u
 - Made-up code and data only. Never work (Barclays) code.
 - Windows + PowerShell, Python 3.14 via uv (`uv add`, `uv run`), never pip in the project.
 - British English in reports. Explain commands in 1-2 plain sentences (Pratham is learning).
+- On the PC always name the configs (`configs\<name>-cuda-….yaml`): a plain `lab run` also loads the
+  laptop's `vulkan` configs, which fail there. Use **5 repeats**: one repeat can swing by 6 tasks.
+- MoE models (experts in system RAM): `backend: cuda-moe` plus `--n-cpu-moe N` in `server_args`.
+  Keep the card below full (an over-full card runs ~3× slower). The PC's page file is small:
+  one heavy job at a time, no fast download beside a MoE run (LOCAL_LLM_LAB.md 9.9).

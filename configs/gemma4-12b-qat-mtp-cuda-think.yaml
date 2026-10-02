@@ -1,0 +1,11 @@
+name: gemma4-12b-qat-mtp-cuda-think
+model: gemma-4-12B-it-qat-UD-Q4_K_XL.gguf
+draft_model: mtp-gemma-4-12B-it-Q4_0.gguf
+spec_type: draft-mtp
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: true                              # runs only tasks marked `thinking: on` or `both`
+sampling: gemma4-card
+repeats: 3
+max_tokens: 12288

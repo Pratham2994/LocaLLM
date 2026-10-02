@@ -1,0 +1,10 @@
+name: gptoss-20b-q4km-cuda-lowreason
+model: gpt-oss-20b-Q4_K_M.gguf              # unsloth/gpt-oss-20b-GGUF, 11.62 GB, MoE (3.6B active)
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false                             # the model has no off switch: it still reasons briefly (reasoning effort low, below)
+sampling: gptoss-card
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "3", "--reasoning-effort", "low"]   # ~386 MiB of experts per layer; 0 layers in RAM = 11.2 GiB on the GPU (too full), 6 = 8.9 GiB

@@ -1,0 +1,9 @@
+name: ornith15-9b-q8-cuda-nothink
+model: Ornith-1.5-9B-Q8_0.gguf              # ornith-ai/Ornith-1.5-9B-GGUF, 9.79 GB, all on GPU
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general            # Qwen3.5-9B-based; its card gives no non-thinking values, so the base model's are used
+repeats: 5
+max_tokens: 4096

@@ -1,0 +1,10 @@
+name: ornith15-35b-a3b-q4km-mtp-cuda-nothink
+model: Ornith-1.5-35B-Q4_K_M.gguf            # ornith-ai/Ornith-1.5-35B-A3B-GGUF, 21.71 GB, MoE (3B active), MTP head inside
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: ornith15-card                     # the card's "general tasks" values: temp 0.6, top_p 0.95, top_k 20
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "26", "--spec-type", "draft-mtp"]   # same split as Qwen3.6-35B-A3B; 9.1 GiB on the GPU

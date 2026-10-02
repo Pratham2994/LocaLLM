@@ -1,0 +1,11 @@
+name: gemma4-e4b-qat-mtp-cuda-nothink
+model: gemma-4-E4B-it-qat-UD-Q4_K_XL.gguf
+draft_model: mtp-gemma-4-E4B-it-Q4_0.gguf   # MTP helper (unsloth/gemma-4-E4B-it-qat-GGUF, MTP/ folder)
+spec_type: draft-mtp
+backend: cuda                               # PC baseline: same model and settings as the laptop config
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: gemma4-card
+repeats: 3
+max_tokens: 4096

@@ -1,0 +1,10 @@
+name: qwen36-35b-a3b-udq4km-mtp-cuda-nothink
+model: Qwen3.6-35B-A3B-UD-Q4_K_M.gguf       # unsloth/Qwen3.6-35B-A3B-MTP-GGUF, 22.66 GB, MoE (3B active), MTP head inside
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general            # same non-thinking values as Qwen3.5 (also used in the KAT-Coder card's example)
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "26", "--spec-type", "draft-mtp"]   # experts of 26 of 40 layers in RAM (~464 MiB each); 9.7 GiB on the GPU

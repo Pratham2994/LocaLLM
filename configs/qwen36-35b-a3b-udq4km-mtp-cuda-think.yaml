@@ -1,0 +1,10 @@
+name: qwen36-35b-a3b-udq4km-mtp-cuda-think
+model: Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: true                              # runs only tasks marked `thinking: on` or `both`
+sampling: qwen35-think-coding               # Qwen3.6 card, thinking mode for precise coding: temp 0.6, top_p 0.95, top_k 20, presence 0
+repeats: 3
+max_tokens: 12288
+server_args: ["--n-cpu-moe", "26", "--spec-type", "draft-mtp"]

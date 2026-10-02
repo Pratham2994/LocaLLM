@@ -1,0 +1,9 @@
+name: qwen35-4b-q4km-cuda-nothink
+model: Qwen3.5-4B-Q4_K_M.gguf       # bare file name: found via model_dirs in the machine file
+backend: cuda                       # PC baseline: same model and settings as the laptop config
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general
+repeats: 3
+max_tokens: 4096

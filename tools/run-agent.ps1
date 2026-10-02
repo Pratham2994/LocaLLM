@@ -8,11 +8,14 @@
 #   - the report is rebuilt at the end.
 # Why your own terminal: Claude Code stops its background jobs when Windows is briefly low on
 # memory, which happens each time a 35B model loads (LOCAL_LLM_LAB.md 9.9, 9.11).
-# Usage: powershell -ExecutionPolicy Bypass -File tools\run-agent.ps1 [-Repeats 5] [-Tasks "*"] [-Configs name1,name2]
-#   -Configs: file names in configs\agent without .yaml (default: all of them)
-param([int]$Repeats = 5, [string]$Tasks = '*', [string[]]$Configs)
+# Usage: powershell -ExecutionPolicy Bypass -File tools\run-agent.ps1 [-Repeats 5] [-Tasks "*"] [-Configs name1,name2] [-WaitForGo]
+#   -Configs: file names in configs\agent without .yaml (default: all of them, read when the run starts)
+#   -WaitForGo: do nothing until the file results\agent-go.flag exists (someone else is still using the GPU,
+#               e.g. Claude Code finishing the task set); the file is removed when the run starts
+#   -Tasks: task id patterns. Default: the tool-call tier and the project tasks (small and big repo); the eight
+#           small repo tasks (ag-py-*, ag-js-*) are left out because every model passes them (LOCAL_LLM_LAB.md 9.11)
+param([int]$Repeats = 5, [string[]]$Tasks = @('tc-*', 'ag-depot-*'), [string[]]$Configs, [switch]$WaitForGo)
 Set-Location (Split-Path -Parent $PSScriptRoot)
-if (-not $Configs) { $Configs = Get-ChildItem configs\agent -Filter *.yaml | ForEach-Object BaseName }
 New-Item -ItemType Directory -Force results\logs | Out-Null
 $log = "results\logs\agent-run-{0:yyyyMMdd-HHmmss}.log" -f (Get-Date)
 
@@ -23,12 +26,19 @@ Add-Type -Namespace Lab -Name Power -MemberDefinition '[DllImport("kernel32.dll"
 function Say($text) { $line = "{0:HH:mm} {1}" -f (Get-Date), $text; $line; Add-Content -Path $log -Value $line -Encoding utf8 }
 function Both { process { "$_"; Add-Content -Path $log -Value "$_" -Encoding utf8 } }   # screen + log, one encoding
 
-Say "agent run: $($Configs.Count) configs x $Repeats repeats, tasks '$Tasks'; log file $log"
 try {
+  if ($WaitForGo) {
+    Say "waiting for results\agent-go.flag (the run starts by itself when that file appears)"
+    while (-not (Test-Path results\agent-go.flag)) { Start-Sleep 30 }
+    Remove-Item results\agent-go.flag -Force
+    while (Get-Process llama-server -ErrorAction SilentlyContinue) { Start-Sleep 10 }   # the GPU must be free
+  }
+  if (-not $Configs) { $Configs = Get-ChildItem configs\agent -Filter *.yaml | ForEach-Object BaseName }
+  Say "agent run: $($Configs.Count) configs x $Repeats repeats, tasks '$Tasks'; log file $log"
   for ($r = 1; $r -le $Repeats; $r++) {
     foreach ($c in $Configs) {
       Say "== repeat $r of $Repeats : $c"
-      uv run --no-sync lab agent "configs\agent\$c.yaml" --tasks $Tasks --repeats $r 2>&1 | Both
+      uv run --no-sync lab agent "configs\agent\$c.yaml" --tasks @Tasks --repeats $r 2>&1 | Both
       if ($LASTEXITCODE -ne 0) { Say "!! $c ended with exit code $LASTEXITCODE; going on with the next one" }
       Get-Process llama-server -ErrorAction SilentlyContinue | Stop-Process -Force   # never leave a server behind
       Start-Sleep 5

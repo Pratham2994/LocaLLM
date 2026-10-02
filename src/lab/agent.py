@@ -34,7 +34,9 @@ AGENT_FILE = ROOT / "tasks" / "agent.yaml"
 PROJECT_DIR = ROOT / "tasks" / "projects"     # shared base projects for `repo` tasks (`base: <name>`)
 AGENT_RUNS = RESULTS_DIR / "agent.jsonl"
 TRANSCRIPT_DIR = RESULTS_DIR / "agent_logs"   # full conversations, for reading failures; not committed
-AGENT_VERSION = 1          # part of the resume key: raise it when the loop or the repo tools change
+MEMORY_FILE = RESULTS_DIR / "memory.jsonl"     # one line per config run: RAM and GPU memory with the model loaded
+AGENT_VERSION = 2          # part of the resume key: raise it when the loop or the repo tools change
+#                            (2: `run_file` tool, hidden checks give a score, new repo system prompt)
 RESULT_CHARS = 12_000      # a longer tool result is cut, with a note, like real agent tools do
 DEFAULT_STEPS = {"tool": 6, "repo": 25}
 TASK_WALL_S = 900
@@ -43,9 +45,12 @@ ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 REPO_SYSTEM = (
     "You are a coding agent working in a small software project. Use the tools to look at the files, "
-    "change the code and run the tests. Do not ask the user questions. Do not change the tests. "
-    "When the work is complete and the tests pass, reply with a short summary and no tool call."
+    "change the code, run the tests and run small scripts of your own. Do not ask the user questions. "
+    "The tests in the project cover only a part of the expected behaviour: the written rules of the "
+    "project (README, docstrings, the task) all count. When the work is complete, reply with a short "
+    "summary and no tool call."
 )
+RESULT_RE = re.compile(r"^RESULT (\d+)/(\d+)\s*$", re.M)   # printed by test files that count rule groups
 TOOL_SYSTEM = "You are a helpful assistant. Use the available tools when they are needed to answer."
 
 
@@ -70,6 +75,9 @@ REPO_TOOLS = [
          "new_text": {"type": "string", "description": "Text to put in its place"}},
         ["path", "old_text", "new_text"]),
     _fn("run_tests", "Run the project's tests and return their output and exit code.", {}, []),
+    _fn("run_file", "Run one script of the project (for example a small file you wrote to try something out) "
+        "and return its output and exit code. It runs with the project root as the working folder.",
+        {"path": _PATH}, ["path"]),
 ]
 
 
@@ -145,12 +153,15 @@ def load_agent_tasks(path: Path = AGENT_FILE) -> list[AgentTask]:
                         "final_not_contains", "final_regex"})
             spec = {"tools": raw["tools"], "expect": raw["expect"]}
         elif kind == "repo":
-            check_keys(where, raw, common_req | {"lang", "files", "hidden", "reference"}, common_opt | {"base", "mutate"})
+            check_keys(where, raw, common_req | {"lang", "files", "hidden", "reference"},
+                       common_opt | {"base", "mutate", "visible_pass"})
             if raw["lang"] not in TEST_FILE:
                 raise ConfigError(f"{where}: lang must be one of {sorted(TEST_FILE)}")
             if TEST_FILE[raw["lang"]] not in raw["files"] or TEST_FILE[raw["lang"]] not in raw["hidden"]:
                 raise ConfigError(f"{where}: `files` and `hidden` must both hold {TEST_FILE[raw['lang']]}")
-            base = project_files(raw["base"], where) if raw.get("base") else {}
+            base: dict[str, str] = {}   # one project folder, or several laid over each other in order
+            for name in ([raw["base"]] if isinstance(raw.get("base"), str) else raw.get("base") or []):
+                base |= project_files(name, where)
             files = base | raw["files"]
             for change in raw.get("mutate") or []:
                 check_keys(f"{where}: mutate", change, {"path", "old", "new"}, set())
@@ -159,6 +170,8 @@ def load_agent_tasks(path: Path = AGENT_FILE) -> list[AgentTask]:
                 files[change["path"]] = files[change["path"]].replace(change["old"], change["new"])
             raw = raw | {"reference": {p: _reference_file(p, v, base, files, where) for p, v in raw["reference"].items()}}
             spec = {"lang": raw["lang"], "files": files, "hidden": raw["hidden"]}
+            if raw.get("visible_pass"):
+                spec["visible_pass"] = True
         else:
             raise ConfigError(f"{where}: kind must be tool or repo")
         if not ID_RE.match(raw["id"]) or raw["id"] in seen:
@@ -280,6 +293,11 @@ class Workspace:
         path = self._resolve(args["path"])
         if path is None:
             return "ERROR: path must be inside the project (use a relative path such as src/app.py)", None
+        if name == "run_file":
+            if not path.is_file():
+                return f"ERROR: no such file: {args['path']}", None
+            code, out = run_project_tests(self.root, self.lang, self.machine_tools, path.relative_to(self.root).as_posix())
+            return f"{out.strip()}\n\nexit code: {code}", None
         if name == "read_file":
             if not path.is_file():
                 return f"ERROR: no such file: {args['path']}. Use list_files to see the files.", None
@@ -301,9 +319,10 @@ class Workspace:
         raise AssertionError(name)
 
 
-def run_project_tests(root: Path, lang: str, machine_tools: dict) -> tuple[int | None, str]:
-    """Run the project's test file inside the sandbox. Raises `Blocked` if the OS refuses to start it."""
-    test = TEST_FILE[lang]
+def run_project_tests(root: Path, lang: str, machine_tools: dict, file: str | None = None) -> tuple[int | None, str]:
+    """Run the project's test file (or another file of the project) inside the sandbox.
+    Raises `Blocked` if the OS refuses to start it."""
+    test = file or TEST_FILE[lang]
     if lang == "js":
         return _run([machine_tools["node"], "--permission", f"--allow-fs-read={root}", test], str(root), DEFAULT_TIMEOUT_S)
     # Python: the launcher lives outside the project folder, installs the audit hook, then runs the test file.
@@ -324,8 +343,10 @@ def write_files(root: Path, files: dict[str, str]) -> None:
 
 # ---------------------------------------------------------------- grading
 
-def grade_repo(task: AgentTask, workspace: Path, machine_tools: dict) -> CheckResult:
-    """Copy the project, put the hidden tests over it, run them. Only the result counts."""
+def grade_repo(task: AgentTask, workspace: Path, machine_tools: dict) -> tuple[CheckResult, float | None]:
+    """Copy the project, put the hidden tests over it, run them. Only the result counts.
+    Returns the pass/fail result and a score from 0 to 1: the share of rule groups that pass when
+    the hidden test file prints `RESULT passed/total`, else 1 or 0."""
     with tempfile.TemporaryDirectory(prefix="lab-agent-grade-") as tmp:
         copy = Path(tmp, "project")
         shutil.copytree(workspace, copy, ignore=shutil.ignore_patterns("__pycache__"))
@@ -333,8 +354,10 @@ def grade_repo(task: AgentTask, workspace: Path, machine_tools: dict) -> CheckRe
         try:
             code, out = run_project_tests(copy.resolve(), task.spec["lang"], machine_tools)
         except Blocked as e:
-            return CheckResult(None, str(e))
-    return CheckResult(code == 0, out[-600:] if code != 0 else "hidden tests pass")
+            return CheckResult(None, str(e)), None
+    counted = RESULT_RE.search(out)
+    score = int(counted[1]) / int(counted[2]) if counted and int(counted[2]) else float(code == 0)
+    return CheckResult(code == 0, out[-900:] if code != 0 else (counted[0] if counted else "hidden tests pass")), score
 
 
 def _contains_all(text: str, items: list) -> list:
@@ -441,16 +464,21 @@ def _sum(turns: list[dict], key: str) -> int:
     return sum(t[key] or 0 for t in turns)
 
 
-def execute(base_url: str, cfg: RunConfig, task: AgentTask, machine: Machine) -> tuple[dict, CheckResult]:
+def execute(base_url: str, cfg: RunConfig, task: AgentTask, machine: Machine) -> tuple[dict, CheckResult, float | None]:
+    """Run one task. Returns the loop record, pass/fail, and a score from 0 to 1."""
     if task.kind == "tool":
         out = run_task(base_url, cfg, task, MockTools(task))
-        return out, grade_tool(task, out["calls"], out["final"], out["bad"])
+        chk = grade_tool(task, out["calls"], out["final"], out["bad"])
+        return out, chk, float(bool(chk.passed))
     with tempfile.TemporaryDirectory(prefix="lab-agent-") as tmp:
         root = Path(tmp).resolve() / "project"
         root.mkdir()
         write_files(root, task.spec["files"])
+        _, start = grade_repo(task, root, machine.tools)   # what the untouched project already scores
         out = run_task(base_url, cfg, task, Workspace(root, task.spec["lang"], machine.tools))
-        return out, grade_repo(task, root, machine.tools)
+        out["score_start"] = start
+        chk, score = grade_repo(task, root, machine.tools)
+        return out, chk, score
 
 
 # ---------------------------------------------------------------- runner
@@ -492,14 +520,15 @@ def run_agent_config(cfg: RunConfig, tasks: list[AgentTask], machine: Machine, r
               f"buffers {json.dumps(info['buffers_mib'])}", flush=True)
         for i, (task, r) in enumerate(todo, 1):
             started = datetime.now().astimezone().isoformat(timespec="seconds")
-            out, chk = execute(machine.base_url, cfg, task, machine)
+            out, chk, score = execute(machine.base_url, cfg, task, machine)
             turns = out["turns"]
             speeds = [t["decode_tok_s"] for t in turns if t["decode_tok_s"]]
             row = {
                 "ts": started, "machine": machine.name, "config": cfg.name, "config_hash": cfg.config_hash,
                 "agent_version": AGENT_VERSION, "task": task.id, "task_hash": task.task_hash, "repeat": r,
                 "kind": task.kind, "category": task.category,
-                "passed": chk.passed, "check_detail": chk.detail, "finish": out["finish"],
+                "passed": chk.passed, "score": score, "score_start": out.get("score_start"),
+                "check_detail": chk.detail, "finish": out["finish"],
                 "steps": len(turns), "n_calls": len(out["calls"]), "bad_calls": out["bad"],
                 "calls": [{"name": c["name"], "args": _short(c["args"])} for c in out["calls"]],
                 "final": out["final"][:1500],
@@ -524,11 +553,22 @@ def run_agent_config(cfg: RunConfig, tasks: list[AgentTask], machine: Machine, r
                 graded += 1
                 passed += chk.passed
             verdict = {True: "PASS", False: "FAIL", None: "NOT GRADED"}[chk.passed]
-            print(f"   [{i:>3}/{len(todo)}] {task.id:<26} r{r} {verdict:<6} {out['wall_s']:6.1f}s  "
+            if task.kind == "repo" and score is not None:
+                verdict = f"{verdict} {score:4.0%}"
+            print(f"   [{i:>3}/{len(todo)}] {task.id:<26} r{r} {verdict:<11} {out['wall_s']:6.1f}s  "
                   f"steps {len(turns):>2}  calls {len(out['calls']):>2}  bad {len(out['bad'])}  "
                   f"ctx {row['prompt_tokens_max']:>5}  think {row['thinking_tokens']:>5}  {out['finish']}", flush=True)
             if out["finish"] == "error" and not srv.alive():
                 raise ServerError(f"llama-server died during {task.id}; log tail:\n{srv.log_tail()}")
+        memory = srv.memory()   # after the work: the mapped file has settled
+        if memory:
+            append_row({"ts": datetime.now().astimezone().isoformat(timespec="seconds"), "machine": machine.name,
+                        "config": cfg.name, "config_hash": cfg.config_hash, "mode": "agent", "ctx": cfg.ctx,
+                        "model_file": cfg.model.name, "model_bytes": cfg.model_bytes, "runs": len(todo),
+                        "buffers_mib": info["buffers_mib"], **memory}, MEMORY_FILE)
+            print(f"   memory: server {memory.get('working_set_gib')} GiB in RAM ({memory.get('private_gib')} GiB private), "
+                  f"{memory.get('system_available_gib')} GiB of RAM left for other programs "
+                  f"({memory.get('system_available_before_gib')} before the model), GPU {memory.get('gpu_used_mib')} MiB in use")
     print(f"   done: {passed}/{graded} agent runs passed this session")
 
 
@@ -570,15 +610,21 @@ def selftest(tasks: list[AgentTask], machine: Machine) -> int:
                     root.mkdir()
                     write_files(root, t.spec["files"])
                     vis_code, _ = run_project_tests(root, t.spec["lang"], machine.tools)
-                    hid = grade_repo(t, root, machine.tools)
+                    hid, hid_score = grade_repo(t, root, machine.tools)
                     write_files(root, t.reference or {})
                     ref_code, ref_out = run_project_tests(root, t.spec["lang"], machine.tools)
-                    ref = grade_repo(t, root, machine.tools)
+                    ref, ref_score = grade_repo(t, root, machine.tools)
+                # A task may start with passing visible tests on purpose (a bug report in words, no failing test).
+                start = ("untouched project passes its visible tests (by design)" if t.spec.get("visible_pass")
+                         else "untouched project fails its tests")
                 for label, bad_when, detail in (
-                        ("untouched project fails its tests", vis_code == 0, "visible tests PASS on the untouched project"),
-                        ("untouched project fails the hidden tests", hid.passed is not False, "hidden tests do not fail on the untouched project"),
+                        (start, (vis_code == 0) != bool(t.spec.get("visible_pass")),
+                         f"visible tests on the untouched project: exit code {vis_code}, not as the task says"),
+                        (f"untouched project scores {hid_score:.0%} on the hidden tests", hid.passed is not False,
+                         "hidden tests do not fail on the untouched project"),
                         ("reference passes its tests", ref_code != 0, f"visible tests FAIL with the reference:\n{ref_out[-500:]}"),
-                        ("reference passes the hidden tests", ref.passed is not True, f"hidden tests FAIL with the reference:\n{ref.detail}")):
+                        ("reference passes the hidden tests", ref.passed is not True or ref_score != 1.0,
+                         f"hidden tests FAIL with the reference:\n{ref.detail}")):
                     problems += bad_when
                     notes.append(detail if bad_when else label)
         except Blocked as e:

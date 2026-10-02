@@ -1,6 +1,6 @@
 # Harness report
 
-Generated 2026-10-03 00:26 from `runs.jsonl` (4101 current runs; 34 tasks in `tasks.yaml`). Sorted by correct answers per hour.
+Generated 2026-10-03 01:19 from `runs.jsonl` (4101 current runs; 34 tasks in `tasks.yaml`). Sorted by correct answers per hour.
 
 - **Correct answers per hour** = passed auto-graded runs ÷ hours of wall time spent on them.
 - Thinking-on configs run only the tasks marked `thinking: on/both`, so compare them with care.
@@ -152,46 +152,60 @@ Generated 2026-10-03 00:26 from `runs.jsonl` (4101 current runs; 34 tasks in `ta
 
 ## Agent tier (`lab agent`)
 
-The model works through tools over several turns (`tasks/agent.yaml`). Tool calls: scripted tools, graded on the calls and the final answer. Repo and project tasks: the model edits a made-up project with six file tools; hidden tests decide. Bad calls = unknown tool, invalid arguments or a missing required argument.
+The model works through tools over several turns (`tasks/agent.yaml`). Tool calls: scripted tools, graded on the calls and the final answer. Repo and project tasks: the model edits a made-up project with file tools; hidden tests decide. For the project tasks the cell is `passed/runs (score)`: a run passes when every hidden rule group passes; the score is the mean share of rule groups won beyond what the untouched project already passes. Big repo = the same tasks with about 50 unrelated and old files around the code. Sorted by the project score. Bad calls = unknown tool, invalid arguments or a missing required argument.
 
-| Config | Thinking | Tool calls | Small repo tasks | Project tasks | All | Median steps (repo) | Median s per repo task | Largest prompt (tokens) | Bad calls | Not finished |
+| Config | Thinking | Tool calls | Small repo tasks | Project tasks | Project tasks, big repo | Median steps (project) | Median s per project task | Largest prompt (tokens) | Bad calls | Ended without a final answer |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `agent-gemma4-12b-qat-mtp-think` | on | 11/11 | 8/8 | – | **19/19** | 9 | 22 | 4220 | 0 | 1 |
-| `agent-qwen36-35b-a3b-mtp-think` | on | 11/11 | 8/8 | – | **19/19** | 6 | 15 | 4390 | 0 | 0 |
-| `agent-gemma4-26b-a4b-qat-mtp-think` | on | 11/11 | 8/8 | – | **19/19** | 10 | 38 | 4315 | 0 | 0 |
-| `agent-katcoder-v25-dev-think` | on | 12/13 | 8/8 | 4/6 | **24/27** | 5 | 19 | 10517 | 0 | 0 |
+| `agent-gemma4-12b-qat-mtp-think` | on | – | – | 2/2 (100%) | – | 12 | 46 | 9174 | 0 | 0 |
+| `agent-qwen35-4b-think` | on | – | – | 8/11 (79%) | 6/11 (72%) | 22 | 59 | 19684 | 0 | 18 |
 
 Per agent task (passed / runs):
 
-| Task | Tier | `gemma4-12b-qat-mtp-think` | `qwen36-35b-a3b-mtp-think` | `gemma4-26b-a4b-qat-mtp-think` | `katcoder-v25-dev-think` |
-|---|---|---|---|---|---|
-| `tc-single-call` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-choose-tool` | Tool calls | – | – | – | 1/1 |
-| `tc-no-tool-needed` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-args-types` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-two-step` | Tool calls | 1/1 | 1/1 | 1/1 | 0/1 |
-| `tc-parallel` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-use-result` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-error-recovery` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-escaping` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-long-result` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-missing-info` | Tool calls | – | – | – | 1/1 |
-| `tc-unknown-tool` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `tc-chain-three` | Tool calls | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-py-fix-threshold` | Small repo tasks | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-py-add-reservations` | Small repo tasks | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-py-three-bugs` | Small repo tasks | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-py-rename` | Small repo tasks | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-py-parse-env` | Small repo tasks | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-py-json-format` | Small repo tasks | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-js-fix-money` | Small repo tasks | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-js-title-case` | Small repo tasks | 1/1 | 1/1 | 1/1 | 1/1 |
-| `ag-depot-weight` | Project tasks | – | – | – | 1/1 |
-| `ag-depot-cancel` | Project tasks | – | – | – | 1/1 |
-| `ag-depot-coupon` | Project tasks | – | – | – | 0/1 |
-| `ag-depot-dates` | Project tasks | – | – | – | 0/1 |
-| `ag-depot-rename-field` | Project tasks | – | – | – | 1/1 |
-| `ag-depot-merge` | Project tasks | – | – | – | 1/1 |
+| Task | Tier | `gemma4-12b-qat-mtp-think` | `qwen35-4b-think` |
+|---|---|---|---|
+| `tc-single-call` | Tool calls | – | – |
+| `tc-choose-tool` | Tool calls | – | – |
+| `tc-no-tool-needed` | Tool calls | – | – |
+| `tc-args-types` | Tool calls | – | – |
+| `tc-two-step` | Tool calls | – | – |
+| `tc-parallel` | Tool calls | – | – |
+| `tc-use-result` | Tool calls | – | – |
+| `tc-error-recovery` | Tool calls | – | – |
+| `tc-escaping` | Tool calls | – | – |
+| `tc-long-result` | Tool calls | – | – |
+| `tc-missing-info` | Tool calls | – | – |
+| `tc-unknown-tool` | Tool calls | – | – |
+| `tc-chain-three` | Tool calls | – | – |
+| `ag-py-fix-threshold` | Small repo tasks | – | – |
+| `ag-py-add-reservations` | Small repo tasks | – | – |
+| `ag-py-three-bugs` | Small repo tasks | – | – |
+| `ag-py-rename` | Small repo tasks | – | – |
+| `ag-py-parse-env` | Small repo tasks | – | – |
+| `ag-py-json-format` | Small repo tasks | – | – |
+| `ag-js-fix-money` | Small repo tasks | – | – |
+| `ag-js-title-case` | Small repo tasks | – | – |
+| `ag-depot-weight` | Project tasks | 1/1 (100%) | 1/1 (100%) |
+| `ag-depot-cancel` | Project tasks | 1/1 (100%) | 1/1 (100%) |
+| `ag-depot-dates` | Project tasks | – | 0/1 (0%) |
+| `ag-depot-merge` | Project tasks | – | 1/1 (100%) |
+| `ag-depot-rename-field` | Project tasks | – | 1/1 (100%) |
+| `ag-depot-coupon` | Project tasks | – | 1/1 (100%) |
+| `ag-depot-returns` | Project tasks | – | 0/1 (64%) |
+| `ag-depot-price-list` | Project tasks | – | 0/1 (10%) |
+| `ag-depot-issue-stock-leak` | Project tasks | – | 1/1 (100%) |
+| `ag-depot-issue-short-pick` | Project tasks | – | 1/1 (100%) |
+| `ag-depot-issue-vat` | Project tasks | – | 1/1 (100%) |
+| `ag-depot-weight-big` | Project tasks, big repo | – | 1/1 (100%) |
+| `ag-depot-cancel-big` | Project tasks, big repo | – | 1/1 (100%) |
+| `ag-depot-dates-big` | Project tasks, big repo | – | 0/1 (38%) |
+| `ag-depot-merge-big` | Project tasks, big repo | – | 0/1 (0%) |
+| `ag-depot-rename-field-big` | Project tasks, big repo | – | 1/1 (100%) |
+| `ag-depot-coupon-big` | Project tasks, big repo | – | 0/1 (90%) |
+| `ag-depot-returns-big` | Project tasks, big repo | – | 0/1 (0%) |
+| `ag-depot-price-list-big` | Project tasks, big repo | – | 0/1 (60%) |
+| `ag-depot-issue-stock-leak-big` | Project tasks, big repo | – | 1/1 (100%) |
+| `ag-depot-issue-short-pick-big` | Project tasks, big repo | – | 1/1 (100%) |
+| `ag-depot-issue-vat-big` | Project tasks, big repo | – | 1/1 (100%) |
 
 ## Needle in a haystack (`lab needle`)
 

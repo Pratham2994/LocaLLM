@@ -53,6 +53,57 @@ def parse_log(text: str) -> dict:
     return info
 
 
+def system_available_gib() -> float | None:
+    """Physical RAM that Windows can still give to programs (free + standby), in GiB."""
+    if os.name != "nt":
+        return None
+    import ctypes
+
+    class MemoryStatus(ctypes.Structure):
+        _fields_ = [("length", ctypes.c_ulong), ("load", ctypes.c_ulong)] + [
+            (name, ctypes.c_ulonglong) for name in
+            ("total_phys", "avail_phys", "total_page", "avail_page", "total_virtual", "avail_virtual", "avail_ext")]
+
+    status = MemoryStatus(length=ctypes.sizeof(MemoryStatus))
+    if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+        return None
+    return round(status.avail_phys / 2**30, 2)
+
+
+def process_memory_gib(handle: int) -> dict:
+    """RAM of one process: `working_set` = in physical RAM now (for a model: the weights kept in RAM and the
+    part of the mapped file Windows has not trimmed yet); `private` = memory only this process can use
+    (it includes what Windows reserves against the GPU memory)."""
+    if os.name != "nt":
+        return {}
+    import ctypes
+
+    class Counters(ctypes.Structure):
+        _fields_ = [("cb", ctypes.c_ulong), ("page_faults", ctypes.c_ulong)] + [
+            (name, ctypes.c_size_t) for name in
+            ("peak_working_set", "working_set", "quota_peak_paged", "quota_paged", "quota_peak_nonpaged",
+             "quota_nonpaged", "pagefile", "peak_pagefile", "private")]
+
+    counters = Counters(cb=ctypes.sizeof(Counters))
+    get = ctypes.windll.psapi.GetProcessMemoryInfo
+    get.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong]
+    if not get(handle, ctypes.byref(counters), counters.cb):
+        return {}
+    return {"working_set_gib": round(counters.working_set / 2**30, 2),
+            "peak_working_set_gib": round(counters.peak_working_set / 2**30, 2),
+            "private_gib": round(counters.private / 2**30, 2)}
+
+
+def gpu_used_mib() -> int | None:
+    """GPU memory in use by all programs (model + desktop), from nvidia-smi; None if there is no such tool."""
+    try:
+        out = subprocess.run(["nvidia-smi", "--query-gpu=memory.used", "--format=csv,noheader,nounits"],
+                             capture_output=True, text=True, timeout=10).stdout
+        return int(out.strip().splitlines()[0])
+    except (OSError, ValueError, IndexError, subprocess.TimeoutExpired):
+        return None
+
+
 def _same_file(a: str, b: Path) -> bool:
     return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
 
@@ -67,7 +118,17 @@ class LlamaServer:
         self.proc: subprocess.Popen | None = None
         self.info: dict = {}
 
+    def memory(self) -> dict:
+        """Memory with the model loaded: the server process, what is left for other programs, the GPU."""
+        if not self.alive():
+            return {}
+        return {**process_memory_gib(int(self.proc._handle)),  # type: ignore[union-attr]
+                "system_available_gib": system_available_gib(),
+                "system_available_before_gib": self.available_before_gib,
+                "gpu_used_mib": gpu_used_mib()}
+
     def __enter__(self) -> "LlamaServer":
+        self.available_before_gib = system_available_gib()
         if port_in_use(self.host, self.port):
             raise ServerError(
                 f"port {self.port} is already in use. Stop the old llama-server first: "

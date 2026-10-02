@@ -42,3 +42,4 @@ desktop.ini
 # --- Claude Code (personal settings only; shared .claude/settings.json stays tracked) ---
 .claude/settings.local.json
 results/agent_logs/
+results/*.flag

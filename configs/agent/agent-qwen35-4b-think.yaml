@@ -1,0 +1,9 @@
+﻿name: agent-qwen35-4b-think
+model: Qwen3.5-4B-Q4_K_M.gguf               # the weakest model of the single-answer tiers (14.0/23): the floor of the agent tier
+backend: cuda
+ctx: 32768
+kv_cache: f16
+thinking: true
+sampling: qwen35-think-coding
+repeats: 3
+max_tokens: 8192

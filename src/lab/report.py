@@ -233,11 +233,23 @@ def _bench_section() -> list[str]:
     return out
 
 
-AGENT_TIERS = (("Tool calls", "tc-"), ("Small repo tasks", "ag-"), ("Project tasks", "ag-depot-"))
+AGENT_TIERS = ("Tool calls", "Small repo tasks", "Project tasks", "Project tasks, big repo")
 
 
 def _agent_tier(task_id: str) -> str:
-    return next(name for name, prefix in reversed(AGENT_TIERS) if task_id.startswith(prefix))
+    if task_id.startswith("tc-"):
+        return AGENT_TIERS[0]
+    if not task_id.startswith("ag-depot-"):
+        return AGENT_TIERS[1]
+    return AGENT_TIERS[3] if task_id.endswith("-big") else AGENT_TIERS[2]
+
+
+def _gain(row: dict) -> float | None:
+    """Share of the hidden rule groups a run won, beyond what the untouched project already passes."""
+    score, start = row.get("score"), row.get("score_start") or 0.0
+    if score is None:
+        return None
+    return max(0.0, (score - start) / (1 - start)) if start < 1 else float(score >= 1)
 
 
 def _agent_section() -> list[str]:
@@ -263,29 +275,53 @@ def _agent_section() -> list[str]:
         graded = [r for r in rows if (r["machine"], r["config"]) == key and r["passed"] is not None]
         return sum(r["passed"] for r in graded) / len(graded) if graded else 0.0
 
-    configs.sort(key=score, reverse=True)
+    def project_score(key: tuple) -> float:
+        gains = [g for r in rows if (r["machine"], r["config"]) == key and r["task"].startswith("ag-depot-")
+                 and (g := _gain(r)) is not None]
+        return statistics.mean(gains) if gains else score(key) - 1   # configs without project runs go last
+
+    def tier_cell(sel: list[dict], with_score: bool) -> str:
+        gains = [g for r in sel if (g := _gain(r)) is not None]
+        return cell(sel) + (f" ({statistics.mean(gains):.0%})" if with_score and gains else "")
+
+    configs.sort(key=project_score, reverse=True)
     out = ["", "## Agent tier (`lab agent`)", "",
            "The model works through tools over several turns (`tasks/agent.yaml`). Tool calls: scripted tools, graded on "
-           "the calls and the final answer. Repo and project tasks: the model edits a made-up project with six file "
-           "tools; hidden tests decide. Bad calls = unknown tool, invalid arguments or a missing required argument.", "",
-           "| Config | Thinking | " + " | ".join(name for name, _ in AGENT_TIERS) + " | All | Median steps (repo) "
-           "| Median s per repo task | Largest prompt (tokens) | Bad calls | Not finished |",
-           "|---|---|" + "---|" * (len(AGENT_TIERS) + 6)]
+           "the calls and the final answer. Repo and project tasks: the model edits a made-up project with file tools; "
+           "hidden tests decide. For the project tasks the cell is `passed/runs (score)`: a run passes when every hidden "
+           "rule group passes; the score is the mean share of rule groups won beyond what the untouched project already "
+           "passes. Big repo = the same tasks with about 50 unrelated and old files around the code. Sorted by the "
+           "project score. Bad calls = unknown tool, invalid arguments or a missing required argument.", "",
+           "| Config | Thinking | " + " | ".join(AGENT_TIERS) + " | Median steps (project) | Median s per project task "
+           "| Largest prompt (tokens) | Bad calls | Ended without a final answer |",
+           "|---|---|" + "---|" * (len(AGENT_TIERS) + 5)]
     for key in configs:
         mine = [r for r in rows if (r["machine"], r["config"]) == key]
-        repo = [r for r in mine if r["kind"] == "repo"]
-        tiers = [cell([r for r in mine if _agent_tier(r["task"]) == name]) for name, _ in AGENT_TIERS]
+        proj = [r for r in mine if r["task"].startswith("ag-depot-")]
+        tiers = [tier_cell([r for r in mine if _agent_tier(r["task"]) == name], i >= 2) for i, name in enumerate(AGENT_TIERS)]
         unfinished = sum(r["finish"] != "final" for r in mine)
         out.append(
-            f"| `{key[1]}` | {'on' if mine[0]['thinking'] else 'off'} | " + " | ".join(tiers) + f" | **{cell(mine)}** "
-            f"| {_f(statistics.median(r['steps'] for r in repo) if repo else None, '.0f')} "
-            f"| {_f(statistics.median(r['wall_s'] for r in repo) if repo else None, '.0f')} "
+            f"| `{key[1]}` | {'on' if mine[0]['thinking'] else 'off'} | " + " | ".join(tiers) + " "
+            f"| {_f(statistics.median(r['steps'] for r in proj) if proj else None, '.0f')} "
+            f"| {_f(statistics.median(r['wall_s'] for r in proj) if proj else None, '.0f')} "
             f"| {max((r['prompt_tokens_max'] for r in mine), default=0)} | {sum(len(r['bad_calls']) for r in mine)} | {unfinished} |")
+    memory = {}
+    for m in _jsonl(RESULTS_DIR / "memory.jsonl"):   # the last measurement per config
+        memory[(m["machine"], m["config"])] = m
+    if memory:
+        out += ["", "Memory with the model loaded, after the run (32K context): GPU = all programs on the card; "
+                    "RAM left = what Windows can still give to other programs.", "",
+                "| Config | GPU in use MiB | Server in RAM GiB | RAM left GiB (before the model) |", "|---|---|---|---|"]
+        for key in configs:
+            if m := memory.get(key):
+                out.append(f"| `{key[1]}` | {m.get('gpu_used_mib')} | {m.get('working_set_gib')} "
+                           f"| {m.get('system_available_gib')} ({m.get('system_available_before_gib')}) |")
     out += ["", "Per agent task (passed / runs):", "",
             "| Task | Tier | " + " | ".join(f"`{c[1].removeprefix('agent-')}`" for c in configs) + " |",
             "|---|---|" + "---|" * len(configs)]
     for t in tasks:
-        cells = [cell([r for r in rows if (r["machine"], r["config"]) == key and r["task"] == t.id]) for key in configs]
+        cells = [tier_cell([r for r in rows if (r["machine"], r["config"]) == key and r["task"] == t.id],
+                           t.id.startswith("ag-depot-")) for key in configs]
         out.append(f"| `{t.id}` | {_agent_tier(t.id)} | " + " | ".join(cells) + " |")
     return out
 

@@ -1,0 +1,11 @@
+name: gemma4-12b-coder-q4km-mtp-cuda-nothink
+model: gemma4-coding-Q4_K_M.gguf            # yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF, 7.38 GB, all on GPU; community coding fine-tune of Gemma 4 12B
+draft_model: mtp-gemma-4-12B-it-Q4_0.gguf   # the plain Gemma 4 12B MTP helper; it also works on this fine-tune (57% of drafts accepted in a probe)
+spec_type: draft-mtp
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: false                             # its card says to keep thinking on; this config is the like-for-like comparison with gemma4-12b-qat-mtp-cuda-nothink
+sampling: gemma4-card                       # the card's values (temp 1.0, top_p 0.95, top_k 64), same as plain Gemma 4
+repeats: 5
+max_tokens: 4096

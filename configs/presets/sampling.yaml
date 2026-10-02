@@ -30,3 +30,9 @@ empero-distill-card:      {temperature: 0.6, top_p: 0.95, top_k: 20, min_p: 0.0,
 laguna-card:              {temperature: 1.0, top_p: 1.0,  top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
 # OpenAI gpt-oss-20b: temp 1.0, top_p 1.0, no top_k (0 = off in llama.cpp).
 gptoss-card:              {temperature: 1.0, top_p: 1.0,  top_k: 0,  min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.0}
+# Older generation, tested 2026-10-02 to check the "old generation" skip (LOCAL_LLM_LAB.md 12.7).
+# Qwen3-Coder-30B-A3B-Instruct (Jul 2025): temp 0.7, top_p 0.8, top_k 20, repetition_penalty 1.05. No thinking mode.
+qwen3-coder-card:         {temperature: 0.7, top_p: 0.8,  top_k: 20, min_p: 0.0, presence_penalty: 0.0, repeat_penalty: 1.05}
+# GLM-4.7-Flash (Jan 2026), Unsloth's llama.cpp values for general use: temp 1.0, top_p 0.95, min_p 0.01, repeat penalty off.
+# The card gives no top_k; 40 is llama.cpp's own default.
+glm47-flash-card:         {temperature: 1.0, top_p: 0.95, top_k: 40, min_p: 0.01, presence_penalty: 0.0, repeat_penalty: 1.0}

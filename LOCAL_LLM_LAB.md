@@ -1,7 +1,7 @@
 # Local LLM Lab: Master File
 
-> **Version:** 35 · **Last updated:** 2026-10-02 · **Owner:** Pratham
-> **Current machine:** **PC** `Black-Vector` (RTX 5070), base folder `D:\02_Code\Inference\` · **Current phase:** PC verdict written (9.10): **Gemma 4 26B-A4B QAT + MTP** is the daily model (22.0/23, 8.8/10 hard, ~120 tok/s), **Gemma 4 12B QAT + MTP** the fast one; the 12.7 test list is done (v35: the uncensored HauhauCS model equals its base, KAT-Coder and the Empero distill are below it, Laguna XS 2.1 does not run correctly on b11321); **next: Pratham reviews the hard tasks (section 8); later Bonsai 2 (12.7 step C)**
+> **Version:** 36 · **Last updated:** 2026-10-02 · **Owner:** Pratham
+> **Current machine:** **PC** `Black-Vector` (RTX 5070), base folder `D:\02_Code\Inference\` · **Current phase:** PC verdict written (9.10): **Gemma 4 26B-A4B QAT + MTP** is the daily model (22.0/23, 8.8/10 hard, ~120 tok/s), **Gemma 4 12B QAT + MTP** the fast one; the 12.7 test list is done (v35: the uncensored HauhauCS model equals its base, KAT-Coder and the Empero distill are below it, Laguna XS 2.1 does not run correctly on b11321; v36: a second look found no missed model, and the gemma-4-12B coder fine-tune, Qwen3-Coder-30B-A3B and GLM-4.7-Flash all score below the current picks); **next: Pratham reviews the hard tasks (section 8); later Bonsai 2 (12.7 step C)**
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
 
@@ -88,6 +88,7 @@ You are continuing a learning project on running LLMs locally. Rules:
 - [x] 4.7 Final comparison: 5 repeats everywhere; thinking on tested for the four leaders (9.9)
 - [x] Hard tier: 10 new `hard-*` tasks, selftest passes, run on 9 models (section 8, 9.9)
 - [x] 4.8 PC findings (9.9), PC verdict (9.10), daily-use commands (verified, 9.10)
+- [x] Extra checks (2026-10-02 night, v36): second look for missed models (12.7: none likely to beat the leader); gemma-4-12B coder 20.4/23 and 5.8/10 (below plain Gemma 4 12B); older generation measured: Qwen3-Coder-30B-A3B 18.0 and 5.6, GLM-4.7-Flash 14.0 and 1.4 with thinking off (9.9, "Extra checks")
 - [ ] Pratham: review the hard tasks (section 8)
 - [x] Page file raised to 16 GB (Pratham, 2026-10-02; 9.9)
 - [x] Leftover partial downloads and llama.cpp zips deleted (28.3 GB, 2026-10-02); git identity set on the PC, results committed
@@ -1229,10 +1230,13 @@ More long-prompt checks: Gemma 4 12B at **64K tokens** found the fact at depth 0
 | Qwen3.8-27B GSQ-RCO + MTP | 20.2 | 6, 8, 7, 6, 8 | 7.0 | 136/165 (82%) | 632 |
 | gpt-oss-20b (low reasoning) | 20.2 | 6, 5, 8, 8, 6 | 6.6 | 134/165 (81%) | 792 |
 | Empero "Qwen3.8-35B-A3B" distill + MTP (v35) | 19.8 | 6, 6, 6, 6, 8 | 6.4 | 131/165 (79%) | 778 |
+| gemma-4-12B coder (yuxinlu1) Q4_K_M + MTP (v36) | 20.4 | 7, 6, 5, 5, 6 | 5.8 | 131/165 (79%) | 1,588 |
 | Ornith-1.5-35B-A3B + MTP | 19.2 | 5, 6, 6, 3, 5 | 5.0 | 121/165 (73%) | 691 |
+| Qwen3-Coder-30B-A3B Q4_K_M (Jul 2025; v36) | 18.0 | 5, 5, 5, 7, 6 | 5.6 | 118/165 (72%) | 376 |
 | Gemma 4 E4B QAT + MTP | 16.8 | 6, 7, 7, 5, 6 | 6.2 | 115/165 (70%) | 1,357 |
 | Qwen3.5-9B Q8_0 | 17.0 | 3, 5, 3, 4, 5 | 4.0 | 105/165 (64%) | 317 |
 | Qwen3.5-4B Q4_K_M | 14.0 | 5, 3, 4, 3, 2 | 3.4 | 87/165 (53%) | 497 |
+| GLM-4.7-Flash Q4_K_M (Jan 2026; thinking off; v36) | 14.0 | 3, 3, 1, 0, 0 | 1.4 | 77/165 (47%) | 293 |
 
 Per hard task (passes of 5):
 
@@ -1254,7 +1258,7 @@ Per hard task (passes of 5):
 - **The 9B class is confirmed weak**: Qwen3.5-9B Q8 gets 4.0 on the hard tier, below Gemma 4 E4B (6.2) at a third of the memory.
 - Two hard tasks do not separate anything yet: both maths tasks are passed by almost everyone (too easy), and `hard-explain-js-order` by almost no one with thinking off (see the thinking-on result below).
 - Failures were read for fairness (27B and Ornith on `hard-py-semver-range`, Gemma 12B and Qwen3.6 on `hard-js-apply-patch`): different real bugs each time (e.g. `> 0` where `< 0` was needed), not one shared misreading of the prompt.
-- **Reading `results/report.md` after this change:** its overview counts every current task. The nine configs above show 165 graded runs (33 tasks × 5); the A/B configs, the no-MTP variants, Ornith-1.5-9B and all laptop configs were not run on the hard tier and show 115 or 23. Compare pass rates only between configs with the same run count, or use the tables in this section. (v35: the three new 35B configs also have 165 graded runs. **Ignore the `laguna-xs21-q4km-cuda-nothink` row** (33 graded runs, 13 passed): it measures a broken set-up, see below.)
+- **Reading `results/report.md` after this change:** its overview counts every current task. The nine configs above show 165 graded runs (33 tasks × 5); the A/B configs, the no-MTP variants, Ornith-1.5-9B and all laptop configs were not run on the hard tier and show 115 or 23. Compare pass rates only between configs with the same run count, or use the tables in this section. (v35 and v36: the three new 35B configs, the gemma-4-12B coder, Qwen3-Coder-30B and GLM-4.7-Flash also have 165 graded runs. **Ignore the `laguna-xs21-q4km-cuda-nothink` row** (33 graded runs, 13 passed): it measures a broken set-up, see below.)
 
 **Step B2, part 2: the last four models of the 12.7 list (2026-10-02 evening; CUDA b11321, `cuda-moe`, `--n-cpu-moe 26`, 16K ctx, thinking off, 33 tasks × 5 repeats; nothing else ran beside the tests):**
 
@@ -1288,6 +1292,44 @@ Per hard task (passes of 5):
 - **Laguna XS 2.1 does not work correctly on llama.cpp b11321, so it has no score.** The build knows the architecture (`laguna`) and the model loads, but before every answer it writes about 480 copies of the token `〈|` (the first piece of its start marker `〈|EOS|〉`; about 960 tokens, hidden by the server because the token is special), and code fences come out as `|||`. So a one-sentence answer costs 960 tokens and the graders cannot read the code. Checked: the chat template is applied as written (the prompt ends `<assistant></think>` with thinking off), and the start marker **is** in the prompt (token 2 first; adding it a second time changes nothing), so a missing start marker is not the cause. Cause not found; a newer llama.cpp build is the first thing to try. Stopped after one repeat (Pratham's decision); the 34 rows stay in `runs.jsonl`. **The model file was deleted the same evening (Pratham's decision)**; its config is in `configs/archive/`.
 - **Memory with the 16 GB page file:** while a 35B model loads, available RAM falls to ~0.2 GB for some seconds (`llama-server` working set 19.6 GB), then Windows trims the mapped file and ~3.5 GB is available. All 15 repeats ran with Brave open and no stop.
 
+**Extra checks (2026-10-02 night, v36; Pratham's questions "did we miss a model?" and "what about GLM-4.7-Flash and Qwen3-Coder-30B?"; CUDA b11321, 16K ctx, thinking off, 33 tasks × 5 repeats; the search itself is in 12.7):**
+
+| Model (file) | Runs as | Original 23: per repeat | Mean | Hard 10: per repeat | Mean | All 33 passed | Decode tok/s | Median s/task | Correct/hour (23 / all 33) | GPU GiB (+ RAM) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Gemma 4 12B QAT + MTP (the base, from above) | all on GPU | 21, 21, 20, 21, 22 | 21.0 | 7, 8, 8, 8, 7 | 7.6 | 143/165 (87%) | 182 | 1.2 | 2,279 / 1,519 | 7.46 |
+| gemma-4-12B coder (yuxinlu1 "coder-fable5-composer2.5-v1") Q4_K_M + the plain model's MTP helper | all on GPU | 22, 21, 20, 20, 19 | 20.4 | 7, 6, 5, 5, 6 | 5.8 | 131/165 (79%) | 147 | 1.0 | 2,506 / 1,588 | 8.08 |
+| Qwen3-Coder-30B-A3B-Instruct Q4_K_M (Jul 2025; no thinking mode) | MoE, `--n-cpu-moe 28` | 18, 18, 18, 18, 18 | 18.0 | 5, 5, 5, 7, 6 | 5.6 | 118/165 (72%) | 66 | 2.9 | 751 / 376 | 9.38 (+10.0) |
+| GLM-4.7-Flash Q4_K_M (Jan 2026; `deepseek2` architecture) | MoE, `--n-cpu-moe 26` | 17, 11, 17, 11, 14 | 14.0 | 3, 3, 1, 0, 0 | 1.4 | 77/165 (47%) | 64 | 3.1 | 505 / 293 | 9.50 (+9.2) |
+
+Per hard task (passes of 5): 
+
+| Task | Gemma 12B (base) | 12B coder | Qwen3-Coder-30B | GLM-4.7-Flash |
+|---|---|---|---|---|
+| `hard-js-apply-patch` | 1 | 0 | 0 | 0 |
+| `hard-py-semver-range` | 2 | 0 | 2 | 0 |
+| `hard-py-build-order` | 5 | 3 | 3 | 2 |
+| `hard-py-ttl-cache` | 5 | 4 | 3 | 2 |
+| `hard-sql-city-champion` | 5 | 5 | 5 | 0 |
+| `hard-sql-order-span` | 5 | 5 | 5 | 0 |
+| `hard-bug-py-allocate` | 5 | 4 | 5 | 0 |
+| `hard-explain-js-order` | 0 | 0 | 0 | 0 |
+| `hard-math-cron-overlap` | 5 | 3 | 0 | 2 |
+| `hard-math-retry-budget` | 5 | 5 | 5 | 1 |
+
+Thinking on (the 12 tasks marked `both`, 3 repeats, `max_tokens` 12,288):
+
+| Model | Original 8 | Hard 4 | Total | Avg s/task | Median thinking tokens | Median wait for the answer |
+|---|---|---|---|---|---|---|
+| Gemma 4 12B QAT + MTP (from above) | 24/24 | 10/12 | 34/36 | 21.9 | 2,606 | 15.2 s |
+| Gemma 4 26B-A4B QAT + MTP (from above) | 24/24 | 9/12 | 33/36 | – | – | – |
+| gemma-4-12B coder + MTP | 22/24 | 7/12 | 29/36 | 4.2 | 250 | 2.4 s |
+| GLM-4.7-Flash | 19/24 | 7/12 | 26/36 | 62.8 | 2,678 | 41.7 s |
+
+- **The gemma-4-12B coder fine-tune is below plain Gemma 4 12B in both modes** (thinking off 131 against 143 of 165; thinking on 29 against 34 of 36), although its card says it is trained on test-verified Python solutions. Its one advantage: it thinks very little (median 250 tokens, 2.4 s wait against 15.2 s). The plain model's MTP helper works on the fine-tune (132 against 69 tok/s in a probe, 57% of drafts accepted).
+- **Fine-tunes against their own base, all results so far: five lower, one equal, none higher** (Ornith 9B and 35B, KAT-Coder, Empero distill, gemma-4-12B coder lower; HauhauCS uncensored equal).
+- **The "old generation" skip of 12.7 is now measured, not assumed.** Qwen3-Coder-30B-A3B: 118/165, far below Qwen3.6-35B-A3B (145/165) at lower speed (66 against 99 tok/s). It is very steady (18 of 23 in every repeat: the same five tasks fail every time) and it loops to the token limit on `hard-math-cron-overlap` (5 cut-offs). GLM-4.7-Flash: 77/165 with thinking off, the lowest of the 30B class and the least steady model of the whole test (20, 14, 18, 11, 14 of 33 per repeat, at its card's temperature of 1.0). With thinking on, which is its intended mode, it reaches 26/36 but needs a median 41.7 s before the answer and ran into the token limit twice; Gemma 4 12B gets 34/36 with a 15 s wait. Failed answers of both were read: real mistakes (SQL that uses a column that does not exist, nine-letter words where eight was the limit), 0 errors, 0 leaked thinking.
+- Download counts are no guide: Qwen3-Coder-30B-A3B has 8.6M downloads and loses to every current model above the 9B class.
+
 **Downloads, 2026-10-02 evening:** the route to Hugging Face was fast again (`hf download` ~28 MB/s; the resumable script 47 MB/s with 37 connections). Pratham downloaded two files with `hf`; two power cuts (PC restarts at 19:03 and 19:28) stopped the other two. Facts worth keeping: (1) `hf download` 2.1.1 with `--local-dir` does not continue a `.incomplete` file (the file name ends in a new random suffix on each start); (2) a partial file can be rescued: `hf` writes it from the start, so its good part was copied into the piece layout of `tools\hf-download.ps1` (64 pieces + `layout.txt`), which then fetched only the rest (15.6 GB in place of 40.7 GB); (3) **after a power cut the end of a file that was being written can be zeros** (Laguna: 0.57 GB of zeros at the end of 16.88 GB), so the end was scanned for all-zero blocks and cut there before continuing; (4) the SHA-256 check at the end passed for all four files. The two stale `.incomplete` files (25.8 GB) were deleted afterwards with Pratham's approval.
 
 **Network, 2026-10-02 ~04:00:** downloads fell from ~24 MB/s to ~3.5 MB/s (GitHub was as slow as Hugging Face in a direct `curl` test, so it is the connection, not the tool). ~~Download queue left running in this order: Ornith-1.5-35B, HauhauCS uncensored, KAT-Coder, Laguna XS 2.1, Empero distill.~~ Ornith-1.5-35B arrived at 05:25 (21.7 GB in 103 min). The queue job then hit Claude Code's 2-hour limit for background jobs and was stopped with 3 GB of the HauhauCS file done; a single-file download for HauhauCS was started at 08:13 and **stopped at 09:42 (system low on memory, see above) with 19.4 of 21.2 GB done**. `hf` did not resume the earlier partial files (each attempt started again from zero), so the next attempt needs the full ~100 minutes at this speed. **Not downloaded, not tested: the uncensored HauhauCS model, KAT-Coder-V2.5-Dev, Laguna XS 2.1, Empero Qwen3.8-35B-A3B-Distill** (85 GB; about 7 hours at 3.5 MB/s, about 1 hour at the 24 MB/s of 2026-10-01). The config for HauhauCS is written (`configs\qwen36-35b-a3b-hauhau-uncensored-q4km-cuda-nothink.yaml`); check at load whether its file has an MTP head. ~~Three stale `.incomplete` files (5.2 + 3.0 + 19.4 GB) are in `models\.cache\huggingface\download` and can be deleted.~~ Deleted on 2026-10-02 with Pratham's approval, together with the four llama.cpp zip files (28.3 GB freed). Downloads restarted the same morning with WARP on, one file per job and nothing running beside them.
@@ -1300,7 +1342,8 @@ Based on 5 repeats per model on 33 auto-graded tasks (23 original + 10 hard), th
 - **Fast and light model: Gemma 4 12B QAT UD-Q4_K_XL + MTP.** 21.0/23 and 7.6/10 at ~185 tok/s: the most correct answers per hour (1,519 on all 33 tasks, about twice the 26B). All on the GPU (7.4 GiB at 16K), no system RAM, and room for a 32K-64K context. Use it when other programs need the RAM, for long documents, or when speed matters more than the last few percent.
 - **Thinking: off by default; on for a retry or a hard bug.** It costs 6-12× the time but only 8-20 s of waiting on this PC, and it lifts the 12B and the 27B from ~90% to 100% on the original thinking tasks.
 - **Runner-up: Qwen3.6-35B-A3B + MTP** (21.0/23, 8.0/10, ~75-100 tok/s). Good, but it holds ~13 GiB of RAM and thinks far longer than Gemma when thinking is on.
-- **Not worth it on this PC:** Qwen3.8-27B squeezed to 2.5 bpw (20.2 / 7.0 at 49-69 tok/s: slower than the 26B and the 35B MoE and not more correct), gpt-oss-20b (20.2 / 6.6), Ornith-1.5 in both sizes (below its Qwen base with thinking off), the 9B class (17.0 / 4.0), and the laptop models (Gemma 4 E4B 16.8 / 6.2; still fine as a 3 GiB quick model at 280 tok/s). Added in v35: KAT-Coder-V2.5-Dev (19.8 / 8.0) and the Empero "Qwen3.8-35B-A3B" distill (19.8 / 6.4): both are fine-tunes of Qwen3.6-35B-A3B that score below it.
+- **Not worth it on this PC:** Qwen3.8-27B squeezed to 2.5 bpw (20.2 / 7.0 at 49-69 tok/s: slower than the 26B and the 35B MoE and not more correct), gpt-oss-20b (20.2 / 6.6), Ornith-1.5 in both sizes (below its Qwen base with thinking off), the 9B class (17.0 / 4.0), and the laptop models (Gemma 4 E4B 16.8 / 6.2; still fine as a 3 GiB quick model at 280 tok/s). Added in v35: KAT-Coder-V2.5-Dev (19.8 / 8.0) and the Empero "Qwen3.8-35B-A3B" distill (19.8 / 6.4): both are fine-tunes of Qwen3.6-35B-A3B that score below it. Added in v36: the gemma-4-12B coder fine-tune (20.4 / 5.8, below plain Gemma 4 12B in both thinking modes) and two older-generation models that are still popular: Qwen3-Coder-30B-A3B (18.0 / 5.6) and GLM-4.7-Flash (14.0 / 1.4 with thinking off).
+- **Fine-tunes (v36):** of six fine-tunes tested against their own base, five score lower (Ornith 9B, Ornith 35B, KAT-Coder, Empero distill, gemma-4-12B coder) and one is equal (HauhauCS uncensored). On this task set, take the base model from the original publisher.
 - **Uncensored model (v35): Qwen3.6-35B-A3B Uncensored, HauhauCS Aggressive, Q4_K_M.** 21.2/23 and 7.8/10: 145 of 165 runs, the same as its base, so the edit costs nothing measurable on these coding tasks. ~74 tok/s (no MTP head in the file), 9.9 GiB of VRAM in use, ~13 GiB of RAM. The tasks do not measure its answers to requests the base refuses.
 - **What decides on 12 GB:** a MoE model with most of its experts in system RAM (26B-A4B, 35B-A3B) beats a dense model squeezed to fit the card, in both quality and speed. Never let the card fill completely: an over-full card cut Qwen3.6-35B from 54 to 19 tok/s.
 - **Limits of this verdict:** single-shot tasks with short answers, not agent work over many steps or large codebases; 16K context in the harness; 5 repeats give a standard error of ~0.4 tasks on the original tier.
@@ -1565,7 +1608,7 @@ Sizes are exact file sizes from the Hugging Face API. ~~**Nothing here is tested
 | B2 | gpt-oss-20b (OpenAI, Aug 2025) | `unsloth/gpt-oss-20b-GGUF` → `gpt-oss-20b-Q4_K_M.gguf` | 11.62 | MoE. Older, but the best-known 12-16 GB model |
 | B3 (optional) | Nemotron-3.5-Lightning-30B-A3B (NVIDIA) | `unsloth/NVIDIA-Nemotron-3.5-Lightning-30B-A3B-GGUF` → `…-UD-Q4_K_M.gguf` | 25.27 | MoE; tight with 31 GB RAM |
 | B3 (optional) | Xing4.0-29B-A4B (China Telecom) | `XingChen-AGI/Xing4.0-29B-A4B-GGUF` → `xing4_0-29b-IQ4_NL.gguf` | 20.10 | MoE, new architecture; check that b11321 loads it |
-| B3 (optional) | gemma-4-12B "coder-fable5-composer2.5" (yuxinlu1; community fine-tune, 2,916 likes) | `yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF` | ~7.4 | Only if the plain Gemma 4 12B does well |
+| B3 (optional) | gemma-4-12B "coder-fable5-composer2.5" (yuxinlu1; community fine-tune, 2,916 likes) | `yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF` → `gemma4-coding-Q4_K_M.gguf` | ~~~7.4~~ 7.38 | Only if the plain Gemma 4 12B does well. **Tested 2026-10-02 (v36): below the plain model, 9.9** |
 | **U (uncensored pick)** | **Qwen3.6-35B-A3B Uncensored, HauhauCS "Aggressive"** (3,801 likes: the most liked uncensored model that runs here) | `HauhauCS/Qwen3.6-35B-A3B-Uncensored-HauhauCS-Aggressive` → `…-Q4_K_M.gguf` | 21.17 | MoE, `--n-cpu-moe N`. Its base is in B2, so the harness shows what the edit costs. Fast fallback if MoE offload is too slow: `HauhauCS/Gemma4-12B-QAT-Uncensored-HauhauCS-Balanced` (all on GPU) |
 | C (later) | Ternary Bonsai 2 27B | `prism-ml/Ternary-Bonsai-2-27B-gguf` (`PQ2_0` 7.21 / `PTQ1_0` 5.95) or `sudoingx/…-PTQ1_0-MTP-GGUF` (7.01) | 6-7 | PrismML fork as a second backend; the thinking switch differs (`reasoning_effort`) |
 
@@ -1585,10 +1628,23 @@ Total: A 7 GB, B1 36 GB, B2 133 GB, B3 53 GB, U 21 GB (D: has 342 GB free).
 | Qwen-AgentWorld-35B-A3B | A world model that simulates agent environments, not a coding assistant |
 | Nemotron-Cascade-2-30B-A3B | Reddit: good at agent tasks, weak at coding |
 | Qwen3.6-28B-REAP20-A3B (barozp), CoPaw-Flash-9B, MiMo-V2.6-Distill-Qwen-9B, Qwythos-9B, granite-4.2-8b | Community prunes / 9B forks; the 9B class is covered by Ornith-1.5-9B and Qwen3.5-9B |
-| Qwen2.5-Coder, Qwen2.5-14B, Qwen3-Coder-30B-A3B (9M downloads), Qwen3-30B-A3B, Qwen3-14B, GLM-4.7-Flash (Jan 2026), Nemotron-3-Nano-30B-A3B, gemma-3-27b, DeepSeek-Coder-V2-Lite, Phi-4 14B, DeepSeek-R1 distills, Llama 3.x | Old generation, still high in the download counts. Example from the KAT-Coder card: SWE-bench Verified 31.8 for Qwen3-Coder-30B vs 64.4 for Qwen3.6-35B-A3B. General web-search "best 12 GB" pages still list these; ignore them (12.2) |
+| Qwen2.5-Coder, Qwen2.5-14B, Qwen3-Coder-30B-A3B (9M downloads), Qwen3-30B-A3B, Qwen3-14B, GLM-4.7-Flash (Jan 2026), Nemotron-3-Nano-30B-A3B, gemma-3-27b, DeepSeek-Coder-V2-Lite, Phi-4 14B, DeepSeek-R1 distills, Llama 3.x | Old generation, still high in the download counts. Example from the KAT-Coder card: SWE-bench Verified 31.8 for Qwen3-Coder-30B vs 64.4 for Qwen3.6-35B-A3B. General web-search "best 12 GB" pages still list these; ignore them (12.2). **Checked with our own tasks on 2026-10-02 (v36, Pratham's question): Qwen3-Coder-30B-A3B 118/165 and GLM-4.7-Flash 77/165 (thinking off) against 145/165 for Qwen3.6-35B-A3B; the skip was right (9.9)** |
 | OTel-2.0-LLM-31B-IT, JiRackUltra_14b | Domain fine-tune (telecom) / unknown uploader |
 | NVFP4, FP8, AWQ, MLX repos (many in the top-download list) | Not GGUF: for vLLM or Apple MLX, not llama.cpp |
 | Other uncensored / abliterated / Heretic builds | Allowed since 2026-10-01 (5.1), but only one is in the test list (row U above). The rest are re-uploads or less-known variants of the same bases. `HauhauCS/Qwen3.8-27B-Uncensored-…` has no file under 10.3 GB, so it does not fit fully on the GPU with the desktop on the card |
+
+**Second look for missed models (2026-10-02 night; the 60 trending GGUF repos, the 40 trending text models, and all "A3B" / "A4B" MoE repos by likes):** nothing found that is likely to beat Gemma 4 26B-A4B for coding on this PC. Most of the trending list is Qwen3.8-27B again (about 15 quantised, uncensored or re-templated variants) or models far too big (GLM-5.3, MiMo-V2.6, IQuest-Q1 at 320B). Not tested, in order of interest:
+
+| Model | Size | Why it could matter | Runs on b11321? |
+|---|---|---|---|
+| Gemma 4 26B-A4B QAT Uncensored, HauhauCS "Balanced" + its MTP helper (`HauhauCS/Gemma4-26B-A4B-QAT-Uncensored-HauhauCS-Balanced-MTP`) | 16.80 + 0.25 GB | The uncensored edit of the best model here; should be faster than the Qwen uncensored pick (MTP, fewer experts in RAM). Pratham: not needed, the Qwen one is enough | Yes (`gemma4`) |
+| Xing4.0-29B-A4B (China Telecom, 1,826 likes) | 20.10 GB | A new MoE of the right size class from a large lab | **No** (architecture `xing4_0` is not in the build) |
+| K2-Horizon-MoVA-36B-A4B (IFM, 137 likes) | 22.37 GB | MoE of the right class, unknown lab | **No** (`k2-horizon`) |
+| Ternary Bonsai 2 27B | 6-7 GB | The most downloaded new model (3.9M); step C | **No** (PrismML fork) |
+| diffusiongemma-26B-A4B (unsloth) | 16.81 GB | A diffusion variant of Gemma 4 26B | **No** (`diffusion-gemma` is not a `llama-server` architecture in this build) |
+| Qwen3.6-14B-A3B-FableVibes (tvall43) | 8.47 GB | A pruned MoE that fits fully on the GPU | Yes, but a community prune plus fine-tune |
+
+A coding fine-tune of Gemma 4 26B-A4B from a known publisher does not exist (only repos with 0-6 likes, and "Gemopus", a general Claude-style distill with 108 likes). **A newer llama.cpp build is the one step that would open Xing4.0, K2-Horizon and probably Laguna XS 2.1**; after any build change, run `lab probe` first (9.9).
 
 **Engines noted for later:** `ik_llama.cpp` (Reddit reports 80-110 tok/s for Qwen3.6-35B-A3B on 12 GB cards; no Windows binaries, needs a source build) and ExLlamaV3 / EXL3 (X; not llama.cpp, the harness would need a new backend). Measure stock llama.cpp first.
 
@@ -1673,3 +1729,4 @@ Sources: Hugging Face API and model cards (2026-10-01); GitHub releases of `ggml
 | 2026-10-01 | Claude Code | v33: **on the PC** (`Black-Vector`, base folder `D:\02_Code\Inference\`). `pc.yaml` filled; llama.cpp b11321 CUDA 13.4 installed and sees the RTX 5070; `hf` 2.1.1 installed; `selftest` 0 problems; monitor stays on the 5070 (~11 GB usable VRAM, Pratham's decision); three `-cuda-` baseline configs written; PC model research with the test list (12.7): OrcaSAQ-2 skipped (vLLM-only, 16 GB class), Bonsai 2 moved to a later step (needs the PrismML fork), added Laguna XS 2.1, KAT-Coder-V2.5-Dev, Ornith-1.5-9B and gpt-oss-20b; **"skip uncensored" rule removed** (Pratham's decision; 5.1), uncensored pick = HauhauCS Qwen3.6-35B-A3B Aggressive (12.7 row U). **First PC results (9.9):** probe OK on b11321; baseline at 5 repeats (Qwen 4B 14.0/23 at 140 tok/s, Gemma E4B QAT 17.0 at 148, + MTP 16.8 at 284); 1-repeat noise is up to 6 tasks, so 5 repeats from now on (build and backend A/B found no defect); step B1: Gemma 4 12B QAT + MTP 21.0/23 at 182 tok/s, Qwen3.8-27B GSQ-RCO 20.2 at 69, Qwen3.5-9B Q8 17.0, Ornith-1.5-9B 15.6; MoE set-up measured (`cuda-moe` backend, `-t 12`, ~408 MiB per layer of experts); Gemma 26B run and B2 downloads stopped when Windows ran low on memory (page file 2.9 GB) |
 | 2026-10-02 | Claude Code | v34 (overnight run): **MoE models tested**: Gemma 4 26B-A4B QAT + MTP 22.0/23 at 124 tok/s (new leader), Qwen3.6-35B-A3B 21.0 at 98, gpt-oss-20b 20.2 at 119, Ornith-1.5-35B-A3B 19.2 (below its Qwen base); Ornith-1.5-9B re-tested with its own sampling (14.8, no better). **Thinking on** works on the PC (8-20 s wait; 12B, 27B and 26B reach 24/24 on the thinking tasks). **Hard tier added**: 10 `hard-*` tasks (section 8) because the original 23 are near their ceiling; order confirmed: 26B 8.8 > 35B 8.0 > 12B 7.6 > 27B 7.0 > gpt-oss 6.6. Long prompts: 64K found on the 12B (31 s prefill). Clean `lab bench` speeds; **`bench.py` fix**: passes `--n-cpu-moe` to llama-bench (the first MoE bench rows measured an over-full card). Memory analysis (GPU memory counts against the Windows commit limit; do not use `--no-mmap`). New sampling presets and a `cuda-moe` backend. **PC verdict and verified daily-use commands in 9.10.** Not done: KAT-Coder, Laguna XS 2.1, the Empero distill and the uncensored HauhauCS model (network fell to ~3.5 MB/s; the download job hit the 2-hour limit once and was stopped once for low memory, 1.8 GB before the end, because a 35B thinking run was going beside it). Git commit not made: no git identity is configured on the PC (all changes are staged) |
 | 2026-10-02 | Claude Code | v35 (evening): **the last four models of the 12.7 list** downloaded (two by Pratham with `hf`, two finished by `tools\hf-download.ps1` after two power cuts; partial `hf` files rescued, zeros from the power cut cut off; all SHA-256 checked) and tested with `--n-cpu-moe 26`, 33 tasks × 5 repeats: **HauhauCS uncensored 21.2/23 and 7.8/10 = 145/165, the same as its base Qwen3.6-35B-A3B**; KAT-Coder-V2.5-Dev 19.8 and 8.0 (139/165); Empero "Qwen3.8-35B-A3B" distill 19.8 and 6.4 (131/165, at 106 tok/s). **Laguna XS 2.1 gives broken output on b11321** (about 960 hidden `〈|` tokens before each answer, code fences as `|||`; start-marker hypothesis tested and rejected; stopped after 1 repeat, no score). PC verdict unchanged; uncensored model and its verified daily-use command added to 9.10. Four new config files; an MTP head shows in the GGUF header as one extra block |
+| 2026-10-02 | Claude Code | v36 (night): Laguna XS 2.1 file and the stale partial downloads deleted (Pratham's decision; 45 GB freed), Laguna config moved to `configs/archive/`; repo pushed. **Second look for missed models** (12.7): none likely to beat Gemma 4 26B-A4B; Xing4.0-29B-A4B and K2-Horizon need a newer llama.cpp build. **Three more models tested** (33 tasks × 5): gemma-4-12B coder fine-tune 20.4/23 and 5.8/10 (131/165; thinking on 29/36), below plain Gemma 4 12B (143/165; 34/36); **Qwen3-Coder-30B-A3B 18.0 and 5.6 (118/165)**; **GLM-4.7-Flash 14.0 and 1.4 (77/165) with thinking off, 26/36 with thinking on**. The 12.7 "old generation" skip is confirmed by measurement. Fine-tunes vs base so far: five lower, one equal. PC verdict unchanged. Five new config files, two sampling presets |

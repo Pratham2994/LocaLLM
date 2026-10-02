@@ -1,0 +1,10 @@
+name: qwen3-coder-30b-a3b-q4km-cuda-nothink
+model: Qwen3-Coder-30B-A3B-Instruct-Q4_K_M.gguf   # unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF, 18.56 GB, MoE (3B active), Jul 2025; older generation, tested to check the 12.7 skip
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false                             # the model has no thinking mode
+sampling: qwen3-coder-card                  # the card's values: temp 0.7, top_p 0.8, top_k 20, repetition_penalty 1.05
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "28"]          # experts of 28 of 48 layers in RAM (~336 MiB each); 9.35 GiB on the GPU (KV 1,536 MiB at 16K). No MTP head

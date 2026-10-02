@@ -1,0 +1,11 @@
+name: gemma4-12b-coder-q4km-mtp-cuda-think
+model: gemma4-coding-Q4_K_M.gguf            # yuxinlu1/gemma-4-12B-coder-fable5-composer2.5-v1-GGUF, 7.38 GB; thinking on is the mode its card recommends
+draft_model: mtp-gemma-4-12B-it-Q4_0.gguf
+spec_type: draft-mtp
+backend: cuda
+ctx: 16384
+kv_cache: f16
+thinking: true                              # runs only tasks marked `thinking: on` or `both`
+sampling: gemma4-card
+repeats: 3
+max_tokens: 12288

@@ -1,0 +1,10 @@
+name: glm47-flash-q4km-cuda-nothink
+model: GLM-4.7-Flash-Q4_K_M.gguf            # unsloth/GLM-4.7-Flash-GGUF, 18.31 GB, MoE (30B, ~3B active; architecture "deepseek2"), Jan 2026; older generation, tested to check the 12.7 skip
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false                             # its template has the enable_thinking switch; off, like the other models
+sampling: glm47-flash-card                  # Unsloth's llama.cpp values for general use: temp 1.0, top_p 0.95, min_p 0.01
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "26"]          # experts of 26 of 47 layers in RAM (~349 MiB each); ~9.5 GiB on the GPU (KV 846 MiB at 16K). No MTP head

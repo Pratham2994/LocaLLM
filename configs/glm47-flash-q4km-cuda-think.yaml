@@ -1,0 +1,10 @@
+name: glm47-flash-q4km-cuda-think
+model: GLM-4.7-Flash-Q4_K_M.gguf            # unsloth/GLM-4.7-Flash-GGUF, 18.31 GB; thinking on is how the model is meant to be used
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: true                              # runs only tasks marked `thinking: on` or `both`
+sampling: glm47-flash-card
+repeats: 3
+max_tokens: 12288
+server_args: ["--n-cpu-moe", "26"]

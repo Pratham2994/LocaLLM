@@ -1,6 +1,6 @@
 # Harness report
 
-Generated 2026-10-02 23:58 from `runs.jsonl` (4101 current runs; 34 tasks in `tasks.yaml`). Sorted by correct answers per hour.
+Generated 2026-10-03 00:26 from `runs.jsonl` (4101 current runs; 34 tasks in `tasks.yaml`). Sorted by correct answers per hour.
 
 - **Correct answers per hour** = passed auto-graded runs ÷ hours of wall time spent on them.
 - Thinking-on configs run only the tasks marked `thinking: on/both`, so compare them with care.

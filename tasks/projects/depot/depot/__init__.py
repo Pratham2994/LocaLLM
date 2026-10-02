@@ -1,0 +1,1 @@
+"""depot: a small order service for a warehouse. Rules are in README.md."""

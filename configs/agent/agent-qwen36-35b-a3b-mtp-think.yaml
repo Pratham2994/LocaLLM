@@ -1,0 +1,11 @@
+﻿name: agent-qwen36-35b-a3b-mtp-think
+model: Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
+backend: cuda-moe
+sampling: qwen35-think-coding
+server_args: ["--n-cpu-moe", "27", "--spec-type", "draft-mtp"]   # one layer more in RAM than at 16K: the KV cache is 320 MiB larger
+ctx: 32768
+kv_cache: f16
+thinking: true
+repeats: 3
+max_tokens: 8192
+

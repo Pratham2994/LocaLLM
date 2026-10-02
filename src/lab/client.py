@@ -52,6 +52,92 @@ def request_body(prompt: str, *, thinking: bool, sampling: dict, max_tokens: int
     return body
 
 
+@dataclass
+class TurnResult:
+    """One model turn of an agent conversation (LOCAL_LLM_LAB.md 9.11: fields verified on b11321)."""
+    content: str = ""
+    reasoning: str | None = None
+    tool_calls: list[dict] | None = None  # [{"id", "name", "arguments": raw JSON text}]
+    finish_reason: str | None = None      # "tool_calls", "stop" or "length"
+    prompt_tokens: int | None = None
+    cached_tokens: int | None = None
+    completion_tokens: int | None = None
+    thinking_tokens: int = 0
+    wall_s: float = 0.0
+    decode_tok_s: float | None = None
+    error: str | None = None
+
+
+def chat_turn(base_url: str, messages: list[dict], *, tools: list[dict], thinking: bool, sampling: dict,
+              max_tokens: int, timeout_s: float) -> TurnResult:
+    """Send the whole conversation with tool definitions; collect text, thinking and tool calls.
+    Tool calls arrive as `delta.tool_calls` pieces: the first piece of each call carries `id` and
+    `function.name`, every piece adds to `function.arguments`; pieces of one call share `index`.
+    `cache_prompt` is on here (unlike `chat`): an agent re-sends the conversation every turn, and
+    real agent tools rely on the server reusing the part it has already processed."""
+    res = TurnResult()
+    content: list[str] = []
+    reasoning: list[str] = []
+    calls: dict[int, dict] = {}
+    usage: dict = {}
+    timings: dict = {}
+    body = {
+        "messages": messages, "tools": tools, "parallel_tool_calls": True,
+        "max_tokens": max_tokens, "cache_prompt": True,
+        "chat_template_kwargs": {"enable_thinking": thinking},
+        "stream": True, "stream_options": {"include_usage": True},
+        **sampling,
+    }
+    t0 = time.perf_counter()
+    try:
+        with requests.post(f"{base_url}/v1/chat/completions", json=body, stream=True,
+                           timeout=(10, timeout_s)) as r:
+            if r.status_code != 200:
+                res.error = f"HTTP {r.status_code}: {r.text[:500]}"
+                return res
+            for line in r.iter_lines():
+                if time.perf_counter() - t0 > timeout_s:
+                    res.error = f"timeout after {timeout_s:.0f}s"
+                    break
+                if not line.startswith(b"data: "):
+                    continue
+                data = line[6:]
+                if data == b"[DONE]":
+                    break
+                chunk = json.loads(data.decode("utf-8"))
+                if "error" in chunk:
+                    res.error = json.dumps(chunk["error"])[:500]
+                    break
+                for choice in chunk.get("choices", []):
+                    delta = choice.get("delta") or {}
+                    if piece := delta.get("reasoning_content"):
+                        reasoning.append(piece)
+                        res.thinking_tokens += 1
+                    if piece := delta.get("content"):
+                        content.append(piece)
+                    for tc in delta.get("tool_calls") or []:
+                        call = calls.setdefault(tc.get("index", 0), {"id": None, "name": "", "arguments": ""})
+                        fn = tc.get("function") or {}
+                        call["id"] = tc.get("id") or call["id"]
+                        call["name"] += fn.get("name") or ""
+                        call["arguments"] += fn.get("arguments") or ""
+                    if choice.get("finish_reason"):
+                        res.finish_reason = choice["finish_reason"]
+                usage = chunk.get("usage") or usage
+                timings = chunk.get("timings") or timings
+    except requests.RequestException as e:
+        res.error = f"{type(e).__name__}: {e}"[:500]
+    res.wall_s = round(time.perf_counter() - t0, 3)
+    res.content = "".join(content)
+    res.reasoning = "".join(reasoning) if reasoning else None
+    res.tool_calls = [calls[i] for i in sorted(calls)] or None
+    res.prompt_tokens = usage.get("prompt_tokens")
+    res.cached_tokens = (usage.get("prompt_tokens_details") or {}).get("cached_tokens")
+    res.completion_tokens = usage.get("completion_tokens")
+    res.decode_tok_s = timings.get("predicted_per_second")
+    return res
+
+
 def chat(base_url: str, prompt: str, *, thinking: bool, sampling: dict, max_tokens: int,
          timeout_s: float) -> ChatResult:
     res = ChatResult()

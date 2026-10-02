@@ -1,0 +1,11 @@
+﻿name: agent-ornith15-35b-a3b-mtp-think
+model: Ornith-1.5-35B-Q4_K_M.gguf
+backend: cuda-moe
+sampling: ornith15-card
+server_args: ["--n-cpu-moe", "26", "--spec-type", "draft-mtp"]
+ctx: 32768
+kv_cache: f16
+thinking: true
+repeats: 3
+max_tokens: 8192
+

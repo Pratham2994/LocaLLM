@@ -1,0 +1,11 @@
+﻿name: agent-gemma4-12b-qat-mtp-think
+model: gemma-4-12B-it-qat-UD-Q4_K_XL.gguf   # all on GPU; KV 1,008 MiB at 32K
+draft_model: mtp-gemma-4-12B-it-Q4_0.gguf
+spec_type: draft-mtp
+backend: cuda
+ctx: 32768                                  # agent work needs room for tool results and several turns
+kv_cache: f16
+thinking: true                              # the agent tier runs with thinking on (LOCAL_LLM_LAB.md 9.11)
+sampling: gemma4-card
+repeats: 3
+max_tokens: 8192                            # per model turn

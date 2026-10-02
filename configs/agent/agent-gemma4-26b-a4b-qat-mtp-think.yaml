@@ -1,0 +1,13 @@
+﻿name: agent-gemma4-26b-a4b-qat-mtp-think
+model: gemma-4-26B-A4B-it-qat-UD-Q4_K_XL.gguf
+draft_model: mtp-gemma-4-26B-A4B-it-Q4_0.gguf
+spec_type: draft-mtp
+backend: cuda-moe
+sampling: gemma4-card
+server_args: ["--n-cpu-moe", "15"]   # the 32K setting checked in 9.10 (9.9 GiB of VRAM in use)
+ctx: 32768
+kv_cache: f16
+thinking: true
+repeats: 3
+max_tokens: 8192
+

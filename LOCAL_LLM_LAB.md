@@ -1,7 +1,7 @@
 # Local LLM Lab: Master File
 
-> **Version:** 36 · **Last updated:** 2026-10-02 · **Owner:** Pratham
-> **Current machine:** **PC** `Black-Vector` (RTX 5070), base folder `D:\02_Code\Inference\` · **Current phase:** PC verdict written (9.10): **Gemma 4 26B-A4B QAT + MTP** is the daily model (22.0/23, 8.8/10 hard, ~120 tok/s), **Gemma 4 12B QAT + MTP** the fast one; the 12.7 test list is done (v35: the uncensored HauhauCS model equals its base, KAT-Coder and the Empero distill are below it, Laguna XS 2.1 does not run correctly on b11321; v36: a second look found no missed model, and the gemma-4-12B coder fine-tune, Qwen3-Coder-30B-A3B and GLM-4.7-Flash all score below the current picks); **next: Pratham reviews the hard tasks (section 8); later Bonsai 2 (12.7 step C)**
+> **Version:** 37 · **Last updated:** 2026-10-02 · **Owner:** Pratham
+> **Current machine:** **PC** `Black-Vector` (RTX 5070), base folder `D:\02_Code\Inference\` · **Current phase:** PC verdict written (9.10): **Gemma 4 26B-A4B QAT + MTP** is the daily model (22.0/23, 8.8/10 hard, ~120 tok/s), **Gemma 4 12B QAT + MTP** the fast one; the 12.7 test list is done (v35: the uncensored HauhauCS model equals its base, KAT-Coder and the Empero distill are below it, Laguna XS 2.1 does not run correctly on b11321; v36: a second look found no missed model, and the gemma-4-12B coder fine-tune, Qwen3-Coder-30B-A3B and GLM-4.7-Flash all score below the current picks). **New goal (v37): agentic coding with a local model in Pi or opencode. The agent tier is built (`lab agent`, 27 tasks, section 7 and 9.11); its full run on six models is not done yet (first job stopped for low memory): run `tools\run-agent.ps1`, then write the agent verdict.** Also open: Pratham reviews the hard tasks (section 8); later Bonsai 2 (12.7 step C)**
 
 This one file holds everything: status, plan, commands, hardware facts, model choices, research notes, and the spec for the test harness. It is written so that a human **or** Claude Code can pick it up and continue with no other context.
 
@@ -89,6 +89,9 @@ You are continuing a learning project on running LLMs locally. Rules:
 - [x] Hard tier: 10 new `hard-*` tasks, selftest passes, run on 9 models (section 8, 9.9)
 - [x] 4.8 PC findings (9.9), PC verdict (9.10), daily-use commands (verified, 9.10)
 - [x] Extra checks (2026-10-02 night, v36): second look for missed models (12.7: none likely to beat the leader); gemma-4-12B coder 20.4/23 and 5.8/10 (below plain Gemma 4 12B); older generation measured: Qwen3-Coder-30B-A3B 18.0 and 5.6, GLM-4.7-Flash 14.0 and 1.4 with thinking off (9.9, "Extra checks")
+- [x] Agent tier built (2026-10-02 night, v37): `lab agent`, 13 tool-call tasks + 8 small repo tasks + 6 tasks on the made-up `depot` project; self-test 0 problems; tool-call JSON verified on b11321 (section 7, 9.11)
+- [ ] **Agent tier full run: 6 models × 27 tasks × 3 repeats** (`tools\run-agent.ps1`, thinking on, 32K ctx). Done so far, 1 repeat: Gemma 4 12B, Qwen3.6-35B, Gemma 4 26B (21 tasks each, before the project tasks existed) and KAT-Coder (27 tasks); Ornith-1.5-35B and gpt-oss-20b not started (9.11)
+- [ ] Agent verdict (9.11), then Pi with the safety extensions and one real check in Pi against opencode (12.8)
 - [ ] Pratham: review the hard tasks (section 8)
 - [x] Page file raised to 16 GB (Pratham, 2026-10-02; 9.9)
 - [x] Leftover partial downloads and llama.cpp zips deleted (28.3 GB, 2026-10-02); git identity set on the PC, results committed
@@ -637,6 +640,26 @@ uv run lab probe configs\x.yaml           # print one raw JSON response (after a
 - `uv run lab report` → `results/report.md` + `results/charts/*.png`. Counts only current results (prompt hash matches `tasks.yaml`; newest `config_hash` per config). Sections: overview (pass rate, **correct answers per hour** = passed ÷ hours spent on graded runs, median time per task, median time to first answer, decode tok/s, tokens per run, memory = sum of server buffers, manual pending, cut off), pass rate by category, per-task matrix (✓ / ✗ / `p/n` / M), charts (correct/hour, time per task, pass rate vs file size, 4B quant ladder; thinking-off configs only, because thinking configs run a smaller task set), needle and llama-bench tables.
 - `uv run lab needle <config> --sizes 4096 16384 32768 --depths 0.5`: invented filler text of an exact token length (measured with the server's `/tokenize`), one hidden fact ("Harbour Street vault code 7481-QX") at the given depth, thinking off, `max_tokens` 64; server `-c` = largest size + 1024. Logs found / missed, prompt tokens and prefill time to `results/needle.jsonl`.
 - `uv run lab bench <configs> --pp 512 --tg 128 --depth 0 --reps 3`: runs `llama-bench -o jsonl` with each config's model, backend folder, threads, args and KV type; appends to `results/bench.jsonl` (merged table in the report).
+
+**Agent tier (v37, 2026-10-02/03; built because Pratham's target use is an agent app such as Pi or opencode on `llama-server`):** the tiers above send one prompt and grade one answer. The agent tier lets the model work through tools over several turns.
+
+```powershell
+uv run lab agent --list                                   # the agent tasks
+uv run lab agent --selftest                               # prove every grader (about 20 s, no model needed)
+uv run lab agent configs\agent\<name>.yaml                # run; resumable; results in results\agent.jsonl
+uv run lab agent configs\agent\x.yaml --tasks "tc-*" --repeats 1
+uv run lab agent configs\agent\x.yaml --dry-run           # plan + server command
+```
+
+- **Files:** `tasks/agent.yaml` (the tasks), `tasks/projects/depot/` (a made-up warehouse order service, 15 files, ~560 lines, with its own `run_tests.py` that proves the base code: 52 checks), `src/lab/agent.py` (tools, loop, graders, runner, self-test), `client.chat_turn` (one model turn with tool definitions), `configs/agent/*.yaml` (same schema as the other configs; kept in their own folder so a plain `lab run` does not load them), `results/agent.jsonl` (committed) and `results/agent_logs/` (full conversations per run, for reading failures; not committed).
+- **Two kinds of task.** `tool`: the task brings scripted tools with canned results; the grader checks the calls (right tool, right argument values and types, order where it matters, none too many) and the final answer. A call to a tool that was not offered, arguments that are not a JSON object, or a missing required argument always fails the task. `repo`: a made-up project is written to a fresh temp folder; the model gets six tools (`list_files`, `read_file`, `search`, `write_file`, `edit_file`, `run_tests`) and must change the code; **hidden tests** run on a copy of the folder decide, so only the result counts, not the route. The hidden tests check only what the prompt, the README or the docstrings state.
+- **Three tiers (27 tasks):** 13 tool-call tasks (`tc-*`), 8 small repo tasks of 2-6 files (`ag-py-*`, `ag-js-*`), 6 project tasks on `depot` (`ag-depot-*`). A project task starts from the shared project, injects its fault with `mutate` (a text change), and its reference restores or patches files.
+- **The loop** (`agent.run_task`): system prompt + task → model turn → execute every tool call of the turn → results back as `tool` messages → next turn; it ends when the model answers without a tool call, or at `max_steps` (6 / 25 / 40-50 model turns), a cut-off turn, a server error or 15 minutes. A tool result longer than 12,000 characters is cut, with a note. Thinking text is not sent back in later turns.
+- **Requests differ from `lab run` in one point: `cache_prompt` is on.** An agent re-sends the whole conversation every turn, and real agent tools rely on the server reusing what it has processed (measured: turn 2 of a probe took 134 of 193 prompt tokens from the cache). Sampling is still sent explicitly; `parallel_tool_calls` is on, so a model may make several calls in one turn.
+- **Safety.** The model never gets a shell. File tools cannot leave the temp folder; `run_tests` runs the project's test file through the same sandbox as `checks.py` (Python audit hook, Node permission model, minimal environment, 10 s timeout).
+- **Proving the graders** (`lab agent --selftest`): every tool task has a `reference` transcript that must pass and a `wrong` one that must fail; every repo task must fail its visible and its hidden tests untouched, and pass both with its reference files.
+- **Row fields** (`results/agent.jsonl`): `passed`, `check_detail`, `finish` (`final`, `max_steps`, `cut_off`, `empty`, `error`, `context_overflow`, `timeout`), `steps` (model turns), `n_calls`, `bad_calls`, `calls` (name + arguments, long strings cut), `final`, `prompt_tokens_first` (system prompt + tool definitions + task: what the tools cost in this model's template), `prompt_tokens_max` (how far the context grew), `completion_tokens`, `thinking_tokens`, `model_s`, `wall_s`, `decode_tok_s`, plus config and server facts. Resume key: (machine, config, `config_hash`, task, `task_hash`, repeat, `agent_version`); `task_hash` covers the prompt, the tools or files and the hidden tests, so an edited task runs again.
+- **Tool-call JSON verified on b11321** (Gemma 4 12B and Qwen3.6-35B-A3B, thinking off and on, with MTP): `message.tool_calls[].function.name` + `.arguments` (a JSON string) + `id`; `finish_reason: "tool_calls"`; streamed as `delta.tool_calls` pieces that share an `index` (the first piece carries `id` and `name`); thinking arrives as `reasoning_content` in the same turn; a `tool` role message with `tool_call_id` feeds the result back.
 
 ---
 
@@ -1378,6 +1401,39 @@ D:\02_Code\Inference\llama-cuda\llama-server.exe -m D:\02_Code\Inference\models\
 
 Use `-rea on` (or leave the flag out) for thinking. The Gemma GGUFs carry temp 1.0, top_p 0.95, top_k 64; the server adds its own default `min_p` 0.05 (the harness sent 0). As on the laptop: one server gives the chat page (http://127.0.0.1:8080) and an OpenAI-compatible API at `/v1`.
 
+### 9.11 Agent tier (from 2026-10-02 night; **not complete**)
+
+**Why:** Pratham's target use changed (2026-10-02): agentic coding with a local model in an agent app (Pi or opencode) that calls `llama-server`. Code quality and tool calling matter; speed only has to be usable; thinking is on. The verdict in 9.10 rests on single answers and says so in its limits. The model cards point the other way for agent work (vendor numbers, full precision, 256K context, each publisher favours its own model, but all three agree on the direction):
+
+| SWE-bench Verified | Qwen's card | KAT-Coder's card | Ornith's card |
+|---|---|---|---|
+| Ornith-1.5-35B-A3B | – | – | 79.0 |
+| KAT-Coder-V2.5-Dev | – | 69.4 | – |
+| Qwen3.6-35B-A3B | 73.4 | 64.4 | 73.4 |
+| Gemma 4 26B-A4B | 17.4 | 35.8 | – |
+| Qwen3-Coder-30B-A3B | – | 31.8 | – |
+
+The KAT-Coder card gives the reasons for Gemma 4 26B: context overflow, and calls to a tool that was not offered. On tool-use dialogue (TAU3 on Qwen's card) the gap is small: Gemma 4 26B 59.0, Qwen3.6-35B 67.2. So the hypothesis to test: **for agent coding the Qwen3.6-35B family (base, KAT-Coder, Ornith) beats Gemma 4 26B, the reverse of 9.10.** Do not delete those models on the strength of their single-answer scores.
+
+**Set-up:** `configs\agent\*.yaml`, thinking on, 32K context, `max_tokens` 8,192 per model turn, each model card's thinking sampling, 3 repeats planned. RAM split at 32K: Gemma 4 26B `--n-cpu-moe 15`, Qwen3.6-35B `27`, KAT-Coder and Ornith `26`, gpt-oss-20b `6`. How the tier is built: section 7.
+
+**First results, 1 repeat only (2026-10-02 23:10-23:56). Too little to rank anything; the project tasks were added during the run, so only KAT-Coder has them:**
+
+| Model | Tool calls | Small repo tasks | Project tasks | Median s per repo task | First prompt, tool task / repo task (tokens) |
+|---|---|---|---|---|---|
+| Gemma 4 12B QAT + MTP | 13/13 | 8/8 | not run | 22 | 167 / 523 |
+| Qwen3.6-35B-A3B + MTP | 11/13 (13/13 after the grader fix below) | 8/8 | not run | 15 | 378 / 791 |
+| Gemma 4 26B-A4B QAT + MTP | 12/13 | 8/8 | not run | 38 | 167 / 523 |
+| KAT-Coder-V2.5-Dev | 12/13 | 8/8 | 4/6 | 19 | 378 / 793 |
+| Ornith-1.5-35B-A3B, gpt-oss-20b | not run | | | | |
+
+- **The small repo tasks are too easy:** every model passed all eight. They prove that the loop works (read, edit, run the tests, repeat; no bad call from any model), but they cannot rank. The six project tasks on `depot` were written for that; KAT-Coder's first try (4/6) shows they bite: in `ag-depot-coupon` its invoice had an extra blank line when no coupon was used, and in `ag-depot-dates` it fixed the bug that the visible check shows and missed the second rule in the README.
+- **One real tool-call failure so far, and it is Gemma 4 26B:** in `tc-missing-info` it invented a customer id ("Farah") and a due date and called `send_invoice`, an action the tool description calls irreversible. Gemma 4 12B, Qwen3.6-35B and KAT-Coder asked for the missing data.
+- KAT-Coder made every call of `tc-two-step` twice (4 calls where 2 are needed, 3 allowed) and failed it for that.
+- **Two graders were too strict and were corrected after this run** (both cost Qwen3.6-35B a pass): `tc-choose-tool` wanted the rate as `1.0837` and now also accepts the rounded `1.08`; `tc-missing-info` wanted a question mark and now accepts any answer that asks for the customer id or the due date. Rows of the old versions stay in `agent.jsonl`; the report counts current task versions only.
+- **Tool definitions cost different amounts per chat template:** the same task with the same tools is 167 tokens in Gemma's template and 378 in Qwen's (tool tier); the six file tools plus system prompt and task are 523 against 791 tokens. All far below the ~6,900 tokens that opencode sends before the first user word.
+- **The run was stopped by Claude Code at 23:56 for low memory, as Ornith began to load.** This is the known load spike of a 35B model (available RAM ~0.2 GB for some seconds, 9.9), seen by the guard that stops background jobs while the session is idle. Nothing was lost but that model start. For a long run use your own terminal: `powershell -File tools\run-agent.ps1` (resumable), or start Claude Code with `CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1`.
+
 ---
 
 ## 10. Troubleshooting
@@ -1650,6 +1706,24 @@ A coding fine-tune of Gemma 4 26B-A4B from a known publisher does not exist (onl
 
 Sources: Hugging Face API and model cards (2026-10-01); GitHub releases of `ggml-org/llama.cpp` and `PrismML-Eng/llama.cpp`; X search (posts by Sudo su, FHILY and replies); Reddit r/LocalLLaMA "Best models for a 12gb VRAM card?" (thread pasted by Pratham).
 
+### 12.8 Agent app for local models: Pi, opencode, oh-my-pi (web check, 2026-10-02; nothing installed or tested yet)
+
+**Choice (Pratham, 2026-10-02): Pi, with a short set of extensions.** Reasons, for a local model on 12 GB:
+
+| | Pi | opencode | oh-my-pi |
+|---|---|---|---|
+| What it is | minimal terminal agent | full terminal agent (LSP, sessions, auto-summary, desktop app) | a fork of Pi "with the IDE wired in" |
+| Tools given to the model | 4 (`read`, `write`, `edit`, `bash`) | about 10 | 31 (LSP, sub-agents, browser, desktop control, memory, web search...) |
+| Fixed prompt per session | small (its author's word; not measured here) | ~6,900 tokens (2,000 system + 4,800 tool definitions) | not stated; 31 tool definitions |
+| Asks before a command runs | no, by default | yes (permissions per tool) | previews destructive edits |
+| Local model set-up | `~/.pi/agent/models.json`, `api: openai-completions`, `baseUrl` of `llama-server` | `opencode.json`, OpenAI-compatible `baseURL` | `~/.omp/agent/models.yml` |
+
+- A fixed 7K-token block is a real share of a 32-64K context, and more tools give a local model more ways to call the wrong one (the failure the KAT-Coder card reports for Gemma 4 26B). So fewer tools and a small prompt fit this PC; oh-my-pi goes the other way.
+- **Safety for Pi** (it runs commands without asking): the packages `@gotgenes/pi-permission-system` (ask / allow / deny per tool and per shell-command pattern, in a `permissions.json`) and `cc-safety-net` (blocks destructive commands and access to secret files), installed with `pi install npm:<name>`. These are guards, not a hard wall: work in a git folder, keep the agent away from data that must not be lost; WSL or a container is the hard wall.
+- **Planned extension set, one at a time, reading the prompt size `llama-server` reports after each:** the two safety packages, `pi-web-access` (web search and URL fetch), `@narumitw/pi-plan-mode` (read-only planning); later `pi-lens` (compiler and linter feedback after edits). Skip for a local model: sub-agent packages, memory packages, the MCP adapter, browser control. Keep the fixed prompt under ~3-4K tokens.
+- **Not confirmed:** native Windows behaviour of each tool (Pi's `bash` tool needs a bash; Git Bash is installed), Pi's real prompt size, the quality of these community packages (they run code on the PC: check each before use). Image input needs the model's `mmproj` file loaded in `llama-server`; KAT-Coder ships text weights only.
+- Sources: patloeber.com/gemma-4-pi-agent (Gemma 4 with Pi), systima.ai/blog/claude-code-vs-opencode-token-overhead (opencode's 6,900 tokens), github.com/can1357/oh-my-pi, pi.dev/packages.
+
 ## 13. Glossary and sources
 
 ### Glossary
@@ -1730,3 +1804,4 @@ Sources: Hugging Face API and model cards (2026-10-01); GitHub releases of `ggml
 | 2026-10-02 | Claude Code | v34 (overnight run): **MoE models tested**: Gemma 4 26B-A4B QAT + MTP 22.0/23 at 124 tok/s (new leader), Qwen3.6-35B-A3B 21.0 at 98, gpt-oss-20b 20.2 at 119, Ornith-1.5-35B-A3B 19.2 (below its Qwen base); Ornith-1.5-9B re-tested with its own sampling (14.8, no better). **Thinking on** works on the PC (8-20 s wait; 12B, 27B and 26B reach 24/24 on the thinking tasks). **Hard tier added**: 10 `hard-*` tasks (section 8) because the original 23 are near their ceiling; order confirmed: 26B 8.8 > 35B 8.0 > 12B 7.6 > 27B 7.0 > gpt-oss 6.6. Long prompts: 64K found on the 12B (31 s prefill). Clean `lab bench` speeds; **`bench.py` fix**: passes `--n-cpu-moe` to llama-bench (the first MoE bench rows measured an over-full card). Memory analysis (GPU memory counts against the Windows commit limit; do not use `--no-mmap`). New sampling presets and a `cuda-moe` backend. **PC verdict and verified daily-use commands in 9.10.** Not done: KAT-Coder, Laguna XS 2.1, the Empero distill and the uncensored HauhauCS model (network fell to ~3.5 MB/s; the download job hit the 2-hour limit once and was stopped once for low memory, 1.8 GB before the end, because a 35B thinking run was going beside it). Git commit not made: no git identity is configured on the PC (all changes are staged) |
 | 2026-10-02 | Claude Code | v35 (evening): **the last four models of the 12.7 list** downloaded (two by Pratham with `hf`, two finished by `tools\hf-download.ps1` after two power cuts; partial `hf` files rescued, zeros from the power cut cut off; all SHA-256 checked) and tested with `--n-cpu-moe 26`, 33 tasks × 5 repeats: **HauhauCS uncensored 21.2/23 and 7.8/10 = 145/165, the same as its base Qwen3.6-35B-A3B**; KAT-Coder-V2.5-Dev 19.8 and 8.0 (139/165); Empero "Qwen3.8-35B-A3B" distill 19.8 and 6.4 (131/165, at 106 tok/s). **Laguna XS 2.1 gives broken output on b11321** (about 960 hidden `〈|` tokens before each answer, code fences as `|||`; start-marker hypothesis tested and rejected; stopped after 1 repeat, no score). PC verdict unchanged; uncensored model and its verified daily-use command added to 9.10. Four new config files; an MTP head shows in the GGUF header as one extra block |
 | 2026-10-02 | Claude Code | v36 (night): Laguna XS 2.1 file and the stale partial downloads deleted (Pratham's decision; 45 GB freed), Laguna config moved to `configs/archive/`; repo pushed. **Second look for missed models** (12.7): none likely to beat Gemma 4 26B-A4B; Xing4.0-29B-A4B and K2-Horizon need a newer llama.cpp build. **Three more models tested** (33 tasks × 5): gemma-4-12B coder fine-tune 20.4/23 and 5.8/10 (131/165; thinking on 29/36), below plain Gemma 4 12B (143/165; 34/36); **Qwen3-Coder-30B-A3B 18.0 and 5.6 (118/165)**; **GLM-4.7-Flash 14.0 and 1.4 (77/165) with thinking off, 26/36 with thinking on**. The 12.7 "old generation" skip is confirmed by measurement. Fine-tunes vs base so far: five lower, one equal. PC verdict unchanged. Five new config files, two sampling presets |
+| 2026-10-02 | Claude Code | v37 (late night): **new goal: agentic coding** in Pi or opencode on `llama-server` (Pratham). Model cards checked: on agent benchmarks Gemma 4 26B is far behind the Qwen3.6-35B family (9.11). **Agent tier built**: `lab agent`, `src/lab/agent.py`, `client.chat_turn`, `tasks/agent.yaml` (13 tool-call + 8 small repo + 6 project tasks), the made-up `depot` project (15 files), `configs/agent/` (6 configs), report section, `tools\run-agent.ps1`; tool-call JSON verified on b11321; self-test 0 problems. First results at 1 repeat (9.11): small tasks too easy (all pass), project tasks separate (KAT-Coder 4/6), Gemma 4 26B invented arguments for an irreversible call. Two graders corrected. Full run not done: the job was stopped for low memory as a 35B model loaded. Pi chosen over opencode and oh-my-pi for local models (small prompt, 4 tools), with the permission extensions (12.8) |

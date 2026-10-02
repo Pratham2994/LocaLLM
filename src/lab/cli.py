@@ -108,6 +108,26 @@ def cmd_bench(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_agent(args: argparse.Namespace) -> int:
+    """Agent tier (tasks/agent.yaml): tool-call tasks and mini repo tasks, results in results/agent.jsonl."""
+    from . import agent
+    machine = load_machine(args.machine)
+    tasks = agent.select(agent.load_agent_tasks(), args.tasks)
+    if args.selftest:
+        return agent.selftest(tasks, machine)
+    if args.list:
+        for t in tasks:
+            print(f"{t.id:<26} {t.kind:<5} {t.category:<16} max_steps={t.max_steps}")
+        print(f"\n{len(tasks)} agent tasks")
+        return 0
+    if not args.configs:
+        raise ConfigError("name the config file(s), e.g. configs\\agent\\<name>.yaml")
+    configs = [load_run_config(p, machine) for p in _config_paths(args.configs)]
+    for cfg in configs:
+        agent.run_agent_config(cfg, tasks, machine, args.repeats or cfg.repeats, dry_run=args.dry_run)
+    return 0
+
+
 def cmd_report(args: argparse.Namespace) -> int:
     from .report import build_report
     path = build_report()
@@ -137,6 +157,15 @@ def main(argv: list[str] | None = None) -> int:
     t = sub.add_parser("tasks", help="list tasks")
     t.add_argument("--tasks", nargs="+")
     t.set_defaults(func=cmd_tasks)
+
+    ag = sub.add_parser("agent", help="agent tier: tool-call and mini repo tasks (tasks/agent.yaml); resumable")
+    ag.add_argument("configs", nargs="*", help="config YAML files (configs/agent/*.yaml)")
+    ag.add_argument("--tasks", nargs="+", help="agent task ids or glob patterns, e.g. tc-* ag-py-*")
+    ag.add_argument("--repeats", type=int, help="override the config's repeats")
+    ag.add_argument("--dry-run", action="store_true", help="show the plan and server command only")
+    ag.add_argument("--selftest", action="store_true", help="prove the graders: references pass, wrong answers fail")
+    ag.add_argument("--list", action="store_true", help="list the agent tasks")
+    ag.set_defaults(func=cmd_agent)
 
     rp = sub.add_parser("report", help="write results/report.md and charts from runs.jsonl")
     rp.set_defaults(func=cmd_report)

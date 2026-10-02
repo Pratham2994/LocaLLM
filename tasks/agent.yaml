@@ -1,0 +1,2384 @@
+# Agent tier (LOCAL_LLM_LAB.md 9.11). Made-up code and data only.
+#
+# kind: tool  -> scripted tools with canned results; graded on the calls and the final answer.
+#   tools:   name, description, parameters (JSON schema), returns (default result),
+#            results: [{when: {arg: value}, returns: text}] (first match wins)
+#   expect:  calls [{tool, args}] (each must be matched by a call; `ordered: true` = in this order),
+#            forbid [tool names], max_calls, min_calls, final_contains (an item that is a list = any one),
+#            final_not_contains, final_regex
+#            argument matchers: {"$contains": text} {"$regex": pattern} {"$exact": value} {"$any": [options]}
+#   A call to a tool that was not offered, or with arguments that are not valid, always fails the task.
+#   reference / wrong: {calls: [{tool, args}], final: text} -> `lab agent --selftest` must pass / fail them.
+#
+# kind: repo  -> `files` are written to a temp folder; the model gets list_files, read_file, search,
+#   write_file, edit_file, run_tests. Graded by the `hidden` files (run_tests.py or run_tests.cjs)
+#   written over a copy of the folder. reference: {path: new full content} must pass both test files.
+#   The hidden tests only check what the prompt, the README or the docstrings state.
+#   base: <name>   -> start from the shared project tasks/projects/<name>/ (the task's `files` go over it;
+#                     the task must bring its own run_tests file, so the project's full test file is not shown)
+#   mutate: [{path, old, new}] -> text changes that inject the fault (each `old` must occur exactly once)
+#   reference values may also be "@base" (the base project's file) or {patch: [{old, new}]}.
+
+tasks:
+
+  # ============================================================ level 1: tool calls
+
+  - id: tc-single-call
+    kind: tool
+    category: tool-call
+    prompt: Where is my order A-1042?
+    tools:
+      - name: get_order_status
+        description: Look up the shipping status of one order.
+        parameters: {type: object, properties: {order_id: {type: string, description: "Order id, e.g. A-1001"}}, required: [order_id]}
+        returns: "Order A-1042: shipped on 2026-03-14 with courier Bluefinch, tracking number BF-77120."
+    expect:
+      calls: [{tool: get_order_status, args: {order_id: "A-1042"}}]
+      max_calls: 1
+      final_contains: [shipped, [Bluefinch, BF-77120]]
+    reference:
+      calls: [{tool: get_order_status, args: {order_id: "A-1042"}}]
+      final: Your order A-1042 was shipped on 14 March 2026 with Bluefinch, tracking number BF-77120.
+    wrong:
+      calls: []
+      final: Your order was shipped with Bluefinch.
+    notes: The simplest case. One tool, one obvious argument, then an answer from the result.
+
+  - id: tc-choose-tool
+    kind: tool
+    category: tool-call
+    prompt: How many US dollars do I get for one euro right now?
+    tools:
+      - name: get_order_status
+        description: Look up the shipping status of one order.
+        parameters: {type: object, properties: {order_id: {type: string}}, required: [order_id]}
+        returns: "ERROR: unknown order"
+      - name: cancel_order
+        description: Cancel an order that has not shipped yet.
+        parameters: {type: object, properties: {order_id: {type: string}, reason: {type: string}}, required: [order_id]}
+        returns: "ERROR: unknown order"
+      - name: list_invoices
+        description: List the invoices of one customer for one year.
+        parameters: {type: object, properties: {customer_id: {type: string}, year: {type: integer}}, required: [customer_id, year]}
+        returns: "[]"
+      - name: get_exchange_rate
+        description: Current exchange rate between two currencies.
+        parameters:
+          type: object
+          properties:
+            base: {type: string, description: "ISO code of the currency you have, e.g. GBP. The rate is for 1 unit of it."}
+            quote: {type: string, description: "ISO code of the currency you want, e.g. INR"}
+          required: [base, quote]
+        returns: "ERROR: unsupported currency pair"
+        results:
+          - when: {base: EUR, quote: USD}
+            returns: "1 EUR = 1.0837 USD (rate time 2026-04-02 09:00 UTC)"
+      - name: create_ticket
+        description: Open a support ticket.
+        parameters: {type: object, properties: {subject: {type: string}, body: {type: string}}, required: [subject, body]}
+        returns: "ticket T-1 created"
+    expect:
+      calls: [{tool: get_exchange_rate, args: {base: EUR, quote: USD}}]
+      forbid: [get_order_status, cancel_order, list_invoices, create_ticket]
+      max_calls: 1
+      final_contains: [["1.0837", "1.084", "1.08"]]   # a rounded rate is a correct answer
+    reference:
+      calls: [{tool: get_exchange_rate, args: {base: EUR, quote: USD}}]
+      final: One euro is 1.0837 US dollars at the moment.
+    wrong:
+      calls: [{tool: get_exchange_rate, args: {base: USD, quote: EUR}}]
+      final: One euro is about 1.08 dollars.
+    notes: Five tools, one fits. The arguments have a direction (base EUR, quote USD); swapped arguments fail.
+
+  - id: tc-no-tool-needed
+    kind: tool
+    category: tool-call
+    prompt: What is the capital of Japan? Answer in one word.
+    tools:
+      - name: get_order_status
+        description: Look up the shipping status of one order.
+        parameters: {type: object, properties: {order_id: {type: string}}, required: [order_id]}
+        returns: "ERROR: unknown order"
+      - name: get_exchange_rate
+        description: Current exchange rate between two currencies.
+        parameters: {type: object, properties: {base: {type: string}, quote: {type: string}}, required: [base, quote]}
+        returns: "ERROR: unsupported currency pair"
+      - name: search_handbook
+        description: Search the company handbook.
+        parameters: {type: object, properties: {query: {type: string}}, required: [query]}
+        returns: "no results"
+    expect:
+      max_calls: 0
+      final_contains: [Tokyo]
+    reference:
+      calls: []
+      final: Tokyo
+    wrong:
+      calls: [{tool: search_handbook, args: {query: capital of Japan}}]
+      final: Tokyo
+    notes: Tools are offered but none is needed. A model that calls a tool anyway fails.
+
+  - id: tc-args-types
+    kind: tool
+    category: tool-call
+    prompt: >-
+      Book a 45 minute online meeting called "Sprint review" with asha@northwind.test and
+      ben@northwind.test. It is high priority. Then tell me the meeting id.
+    tools:
+      - name: create_meeting
+        description: Create a calendar meeting.
+        parameters:
+          type: object
+          properties:
+            title: {type: string}
+            duration_minutes: {type: integer}
+            attendees: {type: array, items: {type: string}, description: "Email addresses"}
+            online: {type: boolean, description: "true for a video call, false for a room"}
+            priority: {type: string, enum: [low, normal, high]}
+          required: [title, duration_minutes, attendees, online, priority]
+        returns: "Meeting created. id: M-2291"
+    expect:
+      calls:
+        - tool: create_meeting
+          args:
+            title: Sprint review
+            duration_minutes: 45
+            attendees: {"$any": [[asha@northwind.test, ben@northwind.test], [ben@northwind.test, asha@northwind.test]]}
+            online: true
+            priority: high
+      max_calls: 1
+      final_contains: [M-2291]
+    reference:
+      calls:
+        - tool: create_meeting
+          args: {title: Sprint review, duration_minutes: 45, attendees: [asha@northwind.test, ben@northwind.test], online: true, priority: high}
+      final: The meeting is booked. Its id is M-2291.
+    wrong:
+      calls:
+        - tool: create_meeting
+          args: {title: Sprint review, duration_minutes: "45", attendees: "asha@northwind.test, ben@northwind.test", online: "true", priority: high}
+      final: The meeting is booked. Its id is M-2291.
+    notes: Argument types. An integer, a boolean, an array and an enum; strings in their place fail.
+
+  - id: tc-two-step
+    kind: tool
+    category: tool-call
+    prompt: Which invoice of the customer Farah Qureshi is overdue? Give me the invoice number.
+    tools:
+      - name: find_customer
+        description: Find customers by name. Returns a JSON list with their ids.
+        parameters: {type: object, properties: {name: {type: string}}, required: [name]}
+        returns: '[{"id": "C-5531", "name": "Farah Qureshi", "city": "Leeds"}]'
+      - name: get_invoices
+        description: List the invoices of one customer.
+        parameters: {type: object, properties: {customer_id: {type: string, description: "Customer id, e.g. C-1000"}}, required: [customer_id]}
+        returns: "ERROR: unknown customer id"
+        results:
+          - when: {customer_id: C-5531}
+            returns: '[{"invoice": "INV-9004", "amount_pence": 18250, "status": "overdue"}, {"invoice": "INV-9017", "amount_pence": 4200, "status": "paid"}]'
+    expect:
+      ordered: true
+      calls:
+        - {tool: find_customer, args: {name: {"$contains": Farah}}}
+        - {tool: get_invoices, args: {customer_id: C-5531}}
+      max_calls: 3
+      final_contains: [INV-9004]
+    reference:
+      calls:
+        - {tool: find_customer, args: {name: Farah Qureshi}}
+        - {tool: get_invoices, args: {customer_id: C-5531}}
+      final: Invoice INV-9004 is overdue.
+    wrong:
+      calls:
+        - {tool: get_invoices, args: {customer_id: Farah Qureshi}}
+      final: Invoice INV-9004 is overdue.
+    notes: The second call needs the id that the first call returns. Guessing the id fails.
+
+  - id: tc-parallel
+    kind: tool
+    category: tool-call
+    prompt: What is the temperature in Pune, Leeds and Oslo right now? Which of the three is the coldest?
+    tools:
+      - name: get_weather
+        description: Current weather for one city.
+        parameters: {type: object, properties: {city: {type: string}}, required: [city]}
+        returns: "ERROR: unknown city"
+        results:
+          - {when: {city: {"$contains": Pune}}, returns: "Pune: 31 C, clear"}
+          - {when: {city: {"$contains": Leeds}}, returns: "Leeds: 9 C, rain"}
+          - {when: {city: {"$contains": Oslo}}, returns: "Oslo: -2 C, snow"}
+    expect:
+      calls:
+        - {tool: get_weather, args: {city: {"$contains": Pune}}}
+        - {tool: get_weather, args: {city: {"$contains": Leeds}}}
+        - {tool: get_weather, args: {city: {"$contains": Oslo}}}
+      max_calls: 3
+      final_contains: [Oslo, "31", "9"]
+      final_regex: ['[-−–]\s?2']
+    reference:
+      calls:
+        - {tool: get_weather, args: {city: Pune}}
+        - {tool: get_weather, args: {city: Leeds}}
+        - {tool: get_weather, args: {city: Oslo}}
+      final: Pune is at 31 C, Leeds at 9 C and Oslo at -2 C. Oslo is the coldest.
+    wrong:
+      calls:
+        - {tool: get_weather, args: {city: Pune}}
+      final: Pune is at 31 C. Oslo is usually the coldest, around -2 C.
+    notes: Three independent calls, in one turn or one after the other. All three results must be used.
+
+  - id: tc-use-result
+    kind: tool
+    category: tool-call
+    prompt: According to our company handbook, how many days of annual leave does a full-time employee get?
+    tools:
+      - name: search_handbook
+        description: Search the company handbook and return the matching section.
+        parameters: {type: object, properties: {query: {type: string}}, required: [query]}
+        returns: "Handbook section 4.2 (Leave): full-time employees get 23.5 days of annual leave per year. Part-time staff get the same pro rata."
+    expect:
+      calls: [{tool: search_handbook}]
+      max_calls: 2
+      final_contains: ["23.5"]
+    reference:
+      calls: [{tool: search_handbook, args: {query: annual leave days}}]
+      final: The handbook gives full-time employees 23.5 days of annual leave per year.
+    wrong:
+      calls: []
+      final: Full-time employees usually get 25 days of annual leave.
+    notes: The answer is an unusual number that only the tool knows. Answering from memory fails.
+
+  - id: tc-error-recovery
+    kind: tool
+    category: tool-call
+    prompt: Read the file config/app.yml and tell me the server port.
+    tools:
+      - name: read_file
+        description: Return the text of one project file.
+        parameters: {type: object, properties: {path: {type: string}}, required: [path]}
+        returns: "ERROR: no such file. Files in config/: app.yaml, logging.yaml"
+        results:
+          - when: {path: config/app.yaml}
+            returns: "server:\n  host: 0.0.0.0\n  port: 8421\n  workers: 6\n"
+          - when: {path: config/logging.yaml}
+            returns: "level: info\nfile: logs/app.log\n"
+    expect:
+      ordered: true
+      calls:
+        - {tool: read_file, args: {path: config/app.yml}}
+        - {tool: read_file, args: {path: config/app.yaml}}
+      max_calls: 3
+      final_contains: ["8421"]
+    reference:
+      calls:
+        - {tool: read_file, args: {path: config/app.yml}}
+        - {tool: read_file, args: {path: config/app.yaml}}
+      final: The file is named config/app.yaml. The server port is 8421.
+    wrong:
+      calls:
+        - {tool: read_file, args: {path: config/app.yml}}
+      final: The file config/app.yml does not exist.
+    notes: The first call fails with a hint (the file is app.yaml). The model must try again, not give up.
+
+  - id: tc-escaping
+    kind: tool
+    category: tool-call
+    prompt: |-
+      Create the file notes/quote.txt with exactly these two lines:
+
+      He said: "use C:\temp\new" and left.
+      Path with 100% {braces} and 'single' quotes.
+    tools:
+      - name: write_file
+        description: Create a file or replace its whole content.
+        parameters: {type: object, properties: {path: {type: string}, content: {type: string}}, required: [path, content]}
+        returns: "wrote the file"
+    expect:
+      calls:
+        - tool: write_file
+          args:
+            path: notes/quote.txt
+            content:
+              "$any":
+                - {"$exact": "He said: \"use C:\\temp\\new\" and left.\nPath with 100% {braces} and 'single' quotes."}
+                - {"$exact": "He said: \"use C:\\temp\\new\" and left.\nPath with 100% {braces} and 'single' quotes.\n"}
+      max_calls: 1
+    reference:
+      calls:
+        - tool: write_file
+          args:
+            path: notes/quote.txt
+            content: "He said: \"use C:\\temp\\new\" and left.\nPath with 100% {braces} and 'single' quotes.\n"
+      final: I created notes/quote.txt.
+    wrong:
+      calls:
+        - tool: write_file
+          args:
+            path: notes/quote.txt
+            content: "He said: \"use C:\temp\new\" and left.\nPath with 100% {braces} and 'single' quotes.\n"
+      final: I created notes/quote.txt.
+    notes: >-
+      JSON escaping. The text holds double quotes and the backslash sequences \t and \n as plain characters.
+      A model that turns them into a tab and a line break (the `wrong` answer) fails.
+
+  - id: tc-long-result
+    kind: tool
+    category: tool-call
+    prompt: The payments service failed last night. Get its log, then tell me the error code and the time of the failure.
+    tools:
+      - name: get_log
+        description: Return last night's log of one service.
+        parameters: {type: object, properties: {service: {type: string, enum: [payments, checkout, search]}}, required: [service]}
+        returns: |
+          2026-04-02T00:02:23Z INFO  health check ok, queue depth 71
+          2026-04-02T00:04:40Z INFO  reconciled 223 payments with the bank file
+          2026-04-02T00:06:57Z INFO  health check ok, queue depth 368
+          2026-04-02T00:09:52Z INFO  card token cache refreshed, 202 entries
+          2026-04-02T00:13:03Z INFO  health check ok, queue depth 379
+          2026-04-02T00:15:58Z WARN  upstream checkout reported code=CHK-1180, ignoring
+          2026-04-02T00:18:44Z INFO  rate limiter window reset, 280 requests in the last minute
+          2026-04-02T00:21:05Z INFO  card token cache refreshed, 80 entries
+          2026-04-02T00:23:28Z WARN  queue depth 339 above the soft limit
+          2026-04-02T00:26:05Z INFO  rate limiter window reset, 72 requests in the last minute
+          2026-04-02T00:28:13Z INFO  worker 1 picked up batch B-20891
+          2026-04-02T00:30:16Z INFO  ledger write ok batch=B-20892 rows=22
+          2026-04-02T00:32:44Z DEBUG gc pause 8 ms
+          2026-04-02T00:35:08Z INFO  health check ok, queue depth 471
+          2026-04-02T00:38:09Z INFO  reconciled 154 payments with the bank file
+          2026-04-02T00:40:38Z INFO  card token cache refreshed, 184 entries
+          2026-04-02T00:43:05Z DEBUG gc pause 18 ms
+          2026-04-02T00:46:02Z WARN  retry 2 of 3 for bank gateway, code=PAY-2210
+          2026-04-02T00:49:19Z WARN  queue depth 191 above the soft limit
+          2026-04-02T00:51:21Z INFO  rate limiter window reset, 225 requests in the last minute
+          2026-04-02T00:53:59Z INFO  ledger write ok batch=B-20901 rows=40
+          2026-04-02T00:57:11Z WARN  queue depth 113 above the soft limit
+          2026-04-02T00:59:50Z INFO  batch B-20903 settled 419 payments in 124 ms
+          2026-04-02T01:03:08Z INFO  worker 3 picked up batch B-20904
+          2026-04-02T01:06:20Z INFO  ledger write ok batch=B-20905 rows=107
+          2026-04-02T01:08:30Z WARN  queue depth 161 above the soft limit
+          2026-04-02T01:10:49Z INFO  card token cache refreshed, 329 entries
+          2026-04-02T01:13:34Z WARN  queue depth 32 above the soft limit
+          2026-04-02T01:15:43Z INFO  card token cache refreshed, 134 entries
+          2026-04-02T01:18:06Z INFO  reconciled 165 payments with the bank file
+          2026-04-02T01:21:02Z DEBUG gc pause 27 ms
+          2026-04-02T01:23:45Z DEBUG gc pause 8 ms
+          2026-04-02T01:26:19Z WARN  retry 1 of 3 for bank gateway, code=PAY-2210
+          2026-04-02T01:29:01Z INFO  batch B-20914 settled 38 payments in 1339 ms
+          2026-04-02T01:31:49Z INFO  worker 1 picked up batch B-20915
+          2026-04-02T01:33:53Z WARN  retry 1 of 3 for bank gateway, code=PAY-2210
+          2026-04-02T01:36:22Z INFO  card token cache refreshed, 324 entries
+          2026-04-02T01:39:04Z INFO  rate limiter window reset, 25 requests in the last minute
+          2026-04-02T01:42:13Z INFO  ledger write ok batch=B-20919 rows=230
+          2026-04-02T01:44:29Z INFO  worker 6 picked up batch B-20920
+          2026-04-02T01:46:45Z INFO  reconciled 201 payments with the bank file
+          2026-04-02T01:50:00Z INFO  health check ok, queue depth 348
+          2026-04-02T01:53:16Z INFO  health check ok, queue depth 460
+          2026-04-02T01:56:21Z INFO  rate limiter window reset, 479 requests in the last minute
+          2026-04-02T01:58:51Z WARN  upstream checkout reported code=CHK-1180, ignoring
+          2026-04-02T02:01:40Z INFO  batch B-20926 settled 392 payments in 590 ms
+          2026-04-02T02:03:52Z INFO  reconciled 61 payments with the bank file
+          2026-04-02T02:06:17Z INFO  card token cache refreshed, 238 entries
+          2026-04-02T02:09:28Z DEBUG gc pause 24 ms
+          2026-04-02T02:11:36Z INFO  ledger write ok batch=B-20930 rows=468
+          2026-04-02T02:13:07Z ERROR ledger write timeout after 3 retries, code=PAY-4417 batch=B-20931, service stopping
+          2026-04-02T02:13:09Z INFO  supervisor: payments exited with status 1
+          2026-04-02T02:21:40Z INFO  supervisor: payments started again, pid 4812
+          2026-04-02T02:24:45Z INFO  card token cache refreshed, 184 entries
+          2026-04-02T02:27:24Z INFO  batch B-20932 settled 230 payments in 1231 ms
+          2026-04-02T02:29:42Z INFO  health check ok, queue depth 64
+          2026-04-02T02:32:50Z INFO  health check ok, queue depth 262
+          2026-04-02T02:35:21Z INFO  card token cache refreshed, 339 entries
+          2026-04-02T02:37:25Z INFO  batch B-20936 settled 212 payments in 2303 ms
+          2026-04-02T02:40:22Z INFO  card token cache refreshed, 293 entries
+          2026-04-02T02:43:35Z INFO  card token cache refreshed, 361 entries
+          2026-04-02T02:46:40Z INFO  batch B-20939 settled 401 payments in 651 ms
+          2026-04-02T02:49:36Z INFO  rate limiter window reset, 340 requests in the last minute
+          2026-04-02T02:51:53Z INFO  rate limiter window reset, 145 requests in the last minute
+          2026-04-02T02:53:58Z INFO  health check ok, queue depth 129
+          2026-04-02T02:56:01Z INFO  health check ok, queue depth 53
+          2026-04-02T02:58:16Z INFO  reconciled 397 payments with the bank file
+          2026-04-02T03:00:46Z INFO  reconciled 283 payments with the bank file
+          2026-04-02T03:03:33Z INFO  rate limiter window reset, 334 requests in the last minute
+          2026-04-02T03:06:18Z INFO  health check ok, queue depth 288
+          2026-04-02T03:08:56Z INFO  reconciled 249 payments with the bank file
+          2026-04-02T03:11:21Z INFO  card token cache refreshed, 245 entries
+          2026-04-02T03:14:34Z WARN  queue depth 108 above the soft limit
+          2026-04-02T03:17:04Z INFO  ledger write ok batch=B-20951 rows=203
+          2026-04-02T03:20:08Z DEBUG gc pause 7 ms
+          2026-04-02T03:23:01Z INFO  worker 3 picked up batch B-20953
+          2026-04-02T03:25:01Z INFO  ledger write ok batch=B-20954 rows=60
+          2026-04-02T03:27:44Z WARN  queue depth 161 above the soft limit
+          2026-04-02T03:30:11Z INFO  rate limiter window reset, 299 requests in the last minute
+          2026-04-02T03:32:21Z WARN  queue depth 412 above the soft limit
+          2026-04-02T03:34:38Z INFO  card token cache refreshed, 371 entries
+          2026-04-02T03:37:54Z INFO  reconciled 137 payments with the bank file
+          2026-04-02T03:40:57Z WARN  upstream checkout reported code=CHK-1180, ignoring
+          2026-04-02T03:43:16Z INFO  batch B-20961 settled 437 payments in 1563 ms
+          2026-04-02T03:45:34Z INFO  batch B-20962 settled 288 payments in 831 ms
+          2026-04-02T03:48:20Z WARN  retry 1 of 3 for bank gateway, code=PAY-2210
+          2026-04-02T03:51:29Z INFO  health check ok, queue depth 434
+          2026-04-02T03:54:05Z INFO  card token cache refreshed, 433 entries
+          2026-04-02T03:57:10Z INFO  card token cache refreshed, 303 entries
+          2026-04-02T04:00:00Z INFO  rate limiter window reset, 413 requests in the last minute
+          2026-04-02T04:02:54Z WARN  slow ledger write: 2188 ms batch=B-20968
+          2026-04-02T04:05:25Z INFO  rate limiter window reset, 389 requests in the last minute
+          2026-04-02T04:08:39Z INFO  batch B-20970 settled 207 payments in 1120 ms
+          2026-04-02T04:10:56Z INFO  reconciled 254 payments with the bank file
+          2026-04-02T04:13:14Z INFO  worker 4 picked up batch B-20972
+          2026-04-02T04:15:35Z INFO  reconciled 464 payments with the bank file
+          2026-04-02T04:18:11Z INFO  worker 1 picked up batch B-20974
+          2026-04-02T04:20:14Z INFO  reconciled 473 payments with the bank file
+          2026-04-02T04:23:18Z INFO  worker 4 picked up batch B-20976
+          2026-04-02T04:26:22Z INFO  batch B-20977 settled 196 payments in 77 ms
+          2026-04-02T04:29:23Z INFO  reconciled 251 payments with the bank file
+          2026-04-02T04:32:42Z INFO  card token cache refreshed, 179 entries
+          2026-04-02T04:35:01Z WARN  slow ledger write: 2324 ms batch=B-20980
+          2026-04-02T04:37:17Z INFO  reconciled 384 payments with the bank file
+          2026-04-02T04:40:03Z WARN  upstream checkout reported code=CHK-1180, ignoring
+          2026-04-02T04:42:36Z WARN  retry 2 of 3 for bank gateway, code=PAY-2210
+          2026-04-02T04:45:02Z INFO  ledger write ok batch=B-20984 rows=191
+          2026-04-02T04:47:08Z INFO  health check ok, queue depth 209
+          2026-04-02T04:50:24Z INFO  reconciled 314 payments with the bank file
+          2026-04-02T04:53:23Z WARN  slow ledger write: 1944 ms batch=B-20987
+          2026-04-02T04:56:36Z INFO  rate limiter window reset, 241 requests in the last minute
+          2026-04-02T04:58:51Z INFO  health check ok, queue depth 113
+          2026-04-02T05:00:55Z INFO  batch B-20990 settled 110 payments in 59 ms
+    expect:
+      calls: [{tool: get_log, args: {service: payments}}]
+      max_calls: 2
+      final_contains: [PAY-4417, "02:13"]
+    reference:
+      calls: [{tool: get_log, args: {service: payments}}]
+      final: The payments service failed at 02:13:07 with error code PAY-4417 (ledger write timeout).
+    wrong:
+      calls: [{tool: get_log, args: {service: payments}}]
+      final: The log shows only warnings, the latest at 03:40. There is no error code.
+    notes: A long tool result (about 3,000 tokens). One ERROR line among info and warning lines.
+
+  - id: tc-missing-info
+    kind: tool
+    category: tool-call
+    prompt: Send an invoice of 120 pounds to the customer Farah.
+    tools:
+      - name: send_invoice
+        description: Create an invoice and send it to the customer by email. This cannot be undone.
+        parameters:
+          type: object
+          properties:
+            customer_id: {type: string, description: "Customer id, e.g. C-1000. A name is not accepted."}
+            amount_pence: {type: integer}
+            due_date: {type: string, description: "Due date as YYYY-MM-DD"}
+          required: [customer_id, amount_pence, due_date]
+        returns: "invoice sent"
+    expect:
+      max_calls: 0
+      final_regex: ['customer(.s)? id|due date|which customer|more (information|details)']   # it asks for what is missing, with or without a question mark
+    reference:
+      calls: []
+      final: I need two things first. What is Farah's customer id, and what due date should the invoice have?
+    wrong:
+      calls: [{tool: send_invoice, args: {customer_id: Farah, amount_pence: 12000, due_date: "2026-05-01"}}]
+      final: I sent the invoice.
+    notes: >-
+      The customer id and the due date are not given and no tool can find them. The right move is to ask.
+      A model that invents the missing arguments for an action that cannot be undone fails.
+
+  - id: tc-unknown-tool
+    kind: tool
+    category: tool-call
+    prompt: >-
+      In src/settings.py change TIMEOUT from 30 to 45. Use the multi_edit or apply_patch tool if you have one.
+    tools:
+      - name: read_file
+        description: Return the text of one project file.
+        parameters: {type: object, properties: {path: {type: string}}, required: [path]}
+        returns: "DEBUG = False\nTIMEOUT = 30\nRETRIES = 3\n"
+      - name: edit_file
+        description: Replace one exact piece of text in a file. old_text must occur exactly once in the file.
+        parameters:
+          type: object
+          properties: {path: {type: string}, old_text: {type: string}, new_text: {type: string}}
+          required: [path, old_text, new_text]
+        returns: "edited src/settings.py"
+    expect:
+      calls:
+        - tool: edit_file
+          args:
+            path: src/settings.py
+            old_text: {"$regex": 'TIMEOUT\s*=\s*30'}
+            new_text: {"$regex": 'TIMEOUT\s*=\s*45'}
+      max_calls: 3
+    reference:
+      calls:
+        - {tool: read_file, args: {path: src/settings.py}}
+        - {tool: edit_file, args: {path: src/settings.py, old_text: "TIMEOUT = 30", new_text: "TIMEOUT = 45"}}
+      final: TIMEOUT is now 45 in src/settings.py.
+    wrong:
+      calls:
+        - {tool: multi_edit, args: {path: src/settings.py, edits: [{old: "TIMEOUT = 30", new: "TIMEOUT = 45"}]}}
+      final: TIMEOUT is now 45.
+    notes: >-
+      The prompt names two tools that are not offered. The model must use the tools it has.
+      Calling a tool that does not exist is the failure the KAT-Coder card reports for Gemma 4 26B.
+
+  - id: tc-chain-three
+    kind: tool
+    category: tool-call
+    prompt: In the billing-api repository, who is assigned to the open issue that has the label "security"?
+    tools:
+      - name: list_repos
+        description: List the repositories of the team.
+        parameters: {type: object, properties: {}}
+        returns: '["billing-api", "web-shop", "infra-scripts"]'
+      - name: get_open_issues
+        description: List the open issues of one repository (id, title, labels). The assignee is not included.
+        parameters: {type: object, properties: {repo: {type: string}}, required: [repo]}
+        returns: "ERROR: unknown repository"
+        results:
+          - when: {repo: billing-api}
+            returns: '[{"id": 38, "title": "Slow invoice export", "labels": ["performance"]}, {"id": 41, "title": "Rotate the API keys", "labels": ["security", "ops"]}, {"id": 44, "title": "Typo in the README", "labels": ["docs"]}]'
+      - name: get_issue
+        description: Full details of one issue, with its assignee.
+        parameters: {type: object, properties: {repo: {type: string}, id: {type: integer}}, required: [repo, id]}
+        returns: "ERROR: unknown issue"
+        results:
+          - when: {repo: billing-api, id: 41}
+            returns: '{"id": 41, "title": "Rotate the API keys", "assignee": "dev.kulkarni", "state": "open", "labels": ["security", "ops"]}'
+          - when: {repo: billing-api, id: 38}
+            returns: '{"id": 38, "title": "Slow invoice export", "assignee": "chloe.adeyemi", "state": "open", "labels": ["performance"]}'
+          - when: {repo: billing-api, id: 44}
+            returns: '{"id": 44, "title": "Typo in the README", "assignee": null, "state": "open", "labels": ["docs"]}'
+    expect:
+      ordered: true
+      calls:
+        - {tool: get_open_issues, args: {repo: billing-api}}
+        - {tool: get_issue, args: {repo: billing-api, id: 41}}
+      max_calls: 5
+      final_contains: [dev.kulkarni]
+    reference:
+      calls:
+        - {tool: get_open_issues, args: {repo: billing-api}}
+        - {tool: get_issue, args: {repo: billing-api, id: 41}}
+      final: The open security issue (number 41, "Rotate the API keys") is assigned to dev.kulkarni.
+    wrong:
+      calls:
+        - {tool: get_open_issues, args: {repo: billing-api}}
+      final: The security issue is number 41. It has no assignee.
+    notes: Two dependent steps with a filter between them (pick the issue by its label, then ask for that id as an integer).
+
+  # ============================================================ level 2: mini repo tasks
+
+  - id: ag-py-fix-threshold
+    kind: repo
+    category: agent-fix
+    lang: python
+    prompt: The test in run_tests.py fails. Find the cause and fix the code.
+    files:
+      README.md: |
+        # Shop pricing
+
+        - Tier discount: bronze 0 %, silver 5 %, gold 10 %. An unknown tier gets 0 %.
+        - Bulk discount: a subtotal of 500.00 pounds or more gets 3 percentage points extra.
+        - The discount is rounded down to a whole penny.
+      shop/__init__.py: ""
+      shop/pricing.py: |
+        from shop.rules import discount_rate
+
+
+        def order_total_pence(items, customer_tier):
+            """items: list of (unit_price_pence, qty). Returns the total after the discount."""
+            subtotal = sum(price * qty for price, qty in items)
+            rate = discount_rate(customer_tier, subtotal)
+            return subtotal - (subtotal * rate) // 100
+      shop/rules.py: |
+        TIERS = {"bronze": 0, "silver": 5, "gold": 10}
+        BULK_THRESHOLD_PENCE = 50_000
+        BULK_EXTRA = 3
+
+
+        def discount_rate(tier, subtotal_pence):
+            """Percent discount for an order: the tier rate plus the bulk extra (see README.md)."""
+            rate = TIERS.get(tier, 0)
+            if subtotal_pence > BULK_THRESHOLD_PENCE:
+                rate += BULK_EXTRA
+            return rate
+      run_tests.py: |
+        from shop.pricing import order_total_pence
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        check("gold order of exactly 500.00", order_total_pence([(25_000, 2)], "gold"), 43_500)
+        check("small silver order", order_total_pence([(1_000, 3)], "silver"), 2_850)
+        check("bronze order", order_total_pence([(999, 1)], "bronze"), 999)
+        print("OK: 3 checks")
+    hidden:
+      run_tests.py: |
+        from shop.pricing import order_total_pence
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        check("gold order of exactly 500.00", order_total_pence([(25_000, 2)], "gold"), 43_500)
+        check("small silver order", order_total_pence([(1_000, 3)], "silver"), 2_850)
+        check("bronze order", order_total_pence([(999, 1)], "bronze"), 999)
+        check("one penny below the threshold", order_total_pence([(49_999, 1)], "gold"), 45_000)
+        check("above the threshold", order_total_pence([(60_000, 1)], "silver"), 55_200)
+        check("unknown tier, bulk only", order_total_pence([(50_000, 1)], "platinum"), 48_500)
+        check("rounded down", order_total_pence([(333, 1)], "silver"), 317)
+        print("OK: 7 checks")
+    reference:
+      shop/rules.py: |
+        TIERS = {"bronze": 0, "silver": 5, "gold": 10}
+        BULK_THRESHOLD_PENCE = 50_000
+        BULK_EXTRA = 3
+
+
+        def discount_rate(tier, subtotal_pence):
+            """Percent discount for an order: the tier rate plus the bulk extra (see README.md)."""
+            rate = TIERS.get(tier, 0)
+            if subtotal_pence >= BULK_THRESHOLD_PENCE:
+                rate += BULK_EXTRA
+            return rate
+    notes: >-
+      The test imports shop/pricing.py but the bug is in shop/rules.py (`>` where the README says "or more").
+      A model that changes the pricing file or the test data to force the one visible number fails the hidden boundary checks.
+
+  - id: ag-py-add-reservations
+    kind: repo
+    category: agent-feature
+    lang: python
+    prompt: Implement the reservation feature that README.md describes. The tests in run_tests.py show some of the expected behaviour.
+    files:
+      README.md: |
+        # Inventory
+
+        `Stock` tracks the units on hand for each SKU.
+
+        ## Reservations (to be implemented)
+
+        - `reserve(sku, qty)` holds units for an order. It does not change `on_hand`.
+        - `available(sku)` returns the units on hand minus the reserved units.
+        - `release(sku, qty)` gives reserved units back.
+        - `reserve` raises `ValueError` if `qty` is not positive or is more than `available(sku)`.
+        - `release` raises `ValueError` if `qty` is not positive or is more than the units reserved for that SKU.
+        - `remove(sku, qty)` must not take reserved units: it raises `ValueError` if `qty` is more than `available(sku)`.
+      inventory/__init__.py: ""
+      inventory/stock.py: |
+        class Stock:
+            """Tracks units on hand per SKU. See README.md for the reservation rules."""
+
+            def __init__(self):
+                self._on_hand = {}
+
+            def add(self, sku, qty):
+                if qty <= 0:
+                    raise ValueError("qty must be positive")
+                self._on_hand[sku] = self._on_hand.get(sku, 0) + qty
+
+            def on_hand(self, sku):
+                return self._on_hand.get(sku, 0)
+
+            def remove(self, sku, qty):
+                if qty <= 0:
+                    raise ValueError("qty must be positive")
+                if qty > self.on_hand(sku):
+                    raise ValueError("not enough stock")
+                self._on_hand[sku] -= qty
+      run_tests.py: |
+        from inventory.stock import Stock
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, fn):
+            try:
+                fn()
+            except ValueError:
+                return
+            raise AssertionError(f"{name}: expected ValueError")
+
+
+        s = Stock()
+        s.add("AB-12", 10)
+        s.reserve("AB-12", 4)
+        check("available after reserve", s.available("AB-12"), 6)
+        check("on_hand unchanged by reserve", s.on_hand("AB-12"), 10)
+        raises("reserve more than available", lambda: s.reserve("AB-12", 7))
+        print("OK: 3 checks")
+    hidden:
+      run_tests.py: |
+        from inventory.stock import Stock
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, fn):
+            try:
+                fn()
+            except ValueError:
+                return
+            raise AssertionError(f"{name}: expected ValueError")
+
+
+        s = Stock()
+        s.add("AB-12", 10)
+        s.reserve("AB-12", 4)
+        check("available after reserve", s.available("AB-12"), 6)
+        check("on_hand unchanged by reserve", s.on_hand("AB-12"), 10)
+        raises("reserve more than available", lambda: s.reserve("AB-12", 7))
+        raises("reserve zero", lambda: s.reserve("AB-12", 0))
+        raises("remove must not take reserved units", lambda: s.remove("AB-12", 7))
+        s.remove("AB-12", 6)
+        check("on_hand after remove", s.on_hand("AB-12"), 4)
+        check("available after remove", s.available("AB-12"), 0)
+        raises("release more than reserved", lambda: s.release("AB-12", 5))
+        raises("release zero", lambda: s.release("AB-12", 0))
+        s.release("AB-12", 3)
+        check("available after release", s.available("AB-12"), 3)
+        check("unknown sku has nothing available", s.available("ZZ-99"), 0)
+        raises("reserve an unknown sku", lambda: s.reserve("ZZ-99", 1))
+        s2 = Stock()
+        s2.add("AB-12", 2)
+        check("stocks do not share reservations", s2.available("AB-12"), 2)
+        print("OK: 13 checks")
+    reference:
+      inventory/stock.py: |
+        class Stock:
+            """Tracks units on hand per SKU. See README.md for the reservation rules."""
+
+            def __init__(self):
+                self._on_hand = {}
+                self._reserved = {}
+
+            def add(self, sku, qty):
+                if qty <= 0:
+                    raise ValueError("qty must be positive")
+                self._on_hand[sku] = self._on_hand.get(sku, 0) + qty
+
+            def on_hand(self, sku):
+                return self._on_hand.get(sku, 0)
+
+            def available(self, sku):
+                return self.on_hand(sku) - self._reserved.get(sku, 0)
+
+            def reserve(self, sku, qty):
+                if qty <= 0:
+                    raise ValueError("qty must be positive")
+                if qty > self.available(sku):
+                    raise ValueError("not enough stock available")
+                self._reserved[sku] = self._reserved.get(sku, 0) + qty
+
+            def release(self, sku, qty):
+                if qty <= 0:
+                    raise ValueError("qty must be positive")
+                if qty > self._reserved.get(sku, 0):
+                    raise ValueError("more than the reserved units")
+                self._reserved[sku] -= qty
+
+            def remove(self, sku, qty):
+                if qty <= 0:
+                    raise ValueError("qty must be positive")
+                if qty > self.available(sku):
+                    raise ValueError("not enough stock")
+                self._on_hand[sku] -= qty
+    notes: >-
+      A feature from a written spec. The visible tests cover reserve and available only; release and the
+      changed rule for remove are in the README. A model that codes to the three visible checks fails.
+
+  - id: ag-py-three-bugs
+    kind: repo
+    category: agent-fix
+    lang: python
+    prompt: The tests in run_tests.py fail. Fix the code so that they pass. There may be more than one problem.
+    files:
+      report/__init__.py: ""
+      report/dates.py: |
+        from datetime import date, timedelta
+
+
+        def month_range(year, month):
+            """Return (first_day, last_day) of the month, both as dates."""
+            first = date(year, month, 1)
+            next_first = date(year, month + 1, 1)
+            return first, next_first - timedelta(days=1)
+      report/summary.py: |
+        from report.dates import month_range
+
+
+        def monthly_total_pence(rows, year, month):
+            """Total of the rows whose day is inside the month (first and last day included).
+
+            Each row is a dict with `day` (a date), `kind` ("sale" or "refund") and
+            `amount_pence` (always positive). A refund lowers the total.
+            """
+            first, last = month_range(year, month)
+            total = 0
+            for row in rows:
+                if first <= row["day"] < last:
+                    total += row["amount_pence"]
+            return total
+      run_tests.py: |
+        from datetime import date
+
+        from report.dates import month_range
+        from report.summary import monthly_total_pence
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        check("march", month_range(2025, 3), (date(2025, 3, 1), date(2025, 3, 31)))
+        check("december", month_range(2025, 12), (date(2025, 12, 1), date(2025, 12, 31)))
+
+        rows = [
+            {"day": date(2025, 3, 1), "kind": "sale", "amount_pence": 1000},
+            {"day": date(2025, 3, 31), "kind": "sale", "amount_pence": 500},
+            {"day": date(2025, 3, 15), "kind": "refund", "amount_pence": 200},
+            {"day": date(2025, 4, 1), "kind": "sale", "amount_pence": 9999},
+        ]
+        check("march total", monthly_total_pence(rows, 2025, 3), 1300)
+        print("OK: 3 checks")
+    hidden:
+      run_tests.py: |
+        from datetime import date
+
+        from report.dates import month_range
+        from report.summary import monthly_total_pence
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        check("march", month_range(2025, 3), (date(2025, 3, 1), date(2025, 3, 31)))
+        check("december", month_range(2025, 12), (date(2025, 12, 1), date(2025, 12, 31)))
+        check("leap february", month_range(2024, 2), (date(2024, 2, 1), date(2024, 2, 29)))
+        check("february", month_range(2025, 2), (date(2025, 2, 1), date(2025, 2, 28)))
+
+        rows = [
+            {"day": date(2025, 3, 1), "kind": "sale", "amount_pence": 1000},
+            {"day": date(2025, 3, 31), "kind": "sale", "amount_pence": 500},
+            {"day": date(2025, 3, 15), "kind": "refund", "amount_pence": 200},
+            {"day": date(2025, 4, 1), "kind": "sale", "amount_pence": 9999},
+            {"day": date(2025, 2, 28), "kind": "sale", "amount_pence": 7},
+            {"day": date(2025, 12, 31), "kind": "sale", "amount_pence": 40},
+            {"day": date(2025, 12, 30), "kind": "refund", "amount_pence": 15},
+        ]
+        check("march total", monthly_total_pence(rows, 2025, 3), 1300)
+        check("december total", monthly_total_pence(rows, 2025, 12), 25)
+        check("february total", monthly_total_pence(rows, 2025, 2), 7)
+        check("empty month", monthly_total_pence(rows, 2025, 7), 0)
+        check("only refunds can go negative", monthly_total_pence(rows[2:3], 2025, 3), -200)
+        print("OK: 9 checks")
+    reference:
+      report/dates.py: |
+        from datetime import date, timedelta
+
+
+        def month_range(year, month):
+            """Return (first_day, last_day) of the month, both as dates."""
+            first = date(year, month, 1)
+            next_first = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
+            return first, next_first - timedelta(days=1)
+      report/summary.py: |
+        from report.dates import month_range
+
+
+        def monthly_total_pence(rows, year, month):
+            """Total of the rows whose day is inside the month (first and last day included).
+
+            Each row is a dict with `day` (a date), `kind` ("sale" or "refund") and
+            `amount_pence` (always positive). A refund lowers the total.
+            """
+            first, last = month_range(year, month)
+            total = 0
+            for row in rows:
+                if first <= row["day"] <= last:
+                    total += -row["amount_pence"] if row["kind"] == "refund" else row["amount_pence"]
+            return total
+    notes: >-
+      Three bugs in two files. The first (December) crashes the test run, so the other two (the last day is left
+      out; a refund is added) only show after it is fixed. The model must run the tests again after each fix.
+
+  - id: ag-py-rename
+    kind: repo
+    category: agent-refactor
+    lang: python
+    prompt: >-
+      Rename the function `calc` in geometry/area.py to `rectangle_area` and update every place that uses it.
+      The old name `calc` must not remain anywhere in the code. Do not change anything else.
+    files:
+      geometry/__init__.py: |
+        from geometry.area import calc, circle_area
+      geometry/area.py: |
+        def calc(width, height):
+            """Area of a rectangle."""
+            if width < 0 or height < 0:
+                raise ValueError("sides must not be negative")
+            return width * height
+
+
+        def circle_area(radius):
+            return 3.141592653589793 * radius * radius
+      app/__init__.py: ""
+      app/floor.py: |
+        from geometry import calc
+
+
+        def floor_area(rooms):
+            """rooms: list of (width, height)."""
+            return sum(calc(w, h) for w, h in rooms)
+
+
+        def paint_needed_litres(width, height, coats=2):
+            return calc(width, height) * coats / 10
+      app/report.py: |
+        import geometry.area as area
+
+
+        def describe(width, height):
+            return f"{width} x {height} = {area.calc(width, height)}"
+      app/tax.py: |
+        def calculate_tax(net_pence, rate_percent=20):
+            """Not related to geometry. `recalc` below is kept for old callers."""
+            return net_pence * rate_percent // 100
+
+
+        recalc = calculate_tax
+      run_tests.py: |
+        from app.floor import floor_area, paint_needed_litres
+        from app.report import describe
+        from geometry import rectangle_area
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        check("rectangle_area", rectangle_area(3, 4), 12)
+        check("floor_area", floor_area([(3, 4), (2, 5)]), 22)
+        check("paint", paint_needed_litres(5, 4), 4.0)
+        check("describe", describe(3, 4), "3 x 4 = 12")
+        print("OK: 4 checks")
+    hidden:
+      run_tests.py: |
+        import pathlib
+        import re
+
+        import geometry
+        import geometry.area
+        from app.floor import floor_area, paint_needed_litres
+        from app.report import describe
+        from app.tax import calculate_tax, recalc
+        from geometry import circle_area, rectangle_area
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        check("rectangle_area", rectangle_area(3, 4), 12)
+        check("floor_area", floor_area([(3, 4), (2, 5)]), 22)
+        check("paint", paint_needed_litres(5, 4), 4.0)
+        check("describe", describe(3, 4), "3 x 4 = 12")
+        check("circle_area kept", round(circle_area(1), 5), 3.14159)
+        check("tax code not touched", (calculate_tax(1000), recalc(1000, 5)), (200, 50))
+        check("old name gone from geometry.area", hasattr(geometry.area, "calc"), False)
+        check("old name gone from geometry", hasattr(geometry, "calc"), False)
+        try:
+            rectangle_area(-1, 2)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("rectangle_area must still reject negative sides")
+        left = [p.as_posix() for p in pathlib.Path(".").rglob("*.py")
+                if p.name != "run_tests.py" and re.search(r"\bcalc\b", p.read_text(encoding="utf-8"))]
+        check("files that still use the name calc", left, [])
+        print("OK: 10 checks")
+    reference:
+      geometry/__init__.py: |
+        from geometry.area import rectangle_area, circle_area
+      geometry/area.py: |
+        def rectangle_area(width, height):
+            """Area of a rectangle."""
+            if width < 0 or height < 0:
+                raise ValueError("sides must not be negative")
+            return width * height
+
+
+        def circle_area(radius):
+            return 3.141592653589793 * radius * radius
+      app/floor.py: |
+        from geometry import rectangle_area
+
+
+        def floor_area(rooms):
+            """rooms: list of (width, height)."""
+            return sum(rectangle_area(w, h) for w, h in rooms)
+
+
+        def paint_needed_litres(width, height, coats=2):
+            return rectangle_area(width, height) * coats / 10
+      app/report.py: |
+        import geometry.area as area
+
+
+        def describe(width, height):
+            return f"{width} x {height} = {area.rectangle_area(width, height)}"
+    notes: >-
+      A rename across four files with three different import styles (from-import, package re-export, module alias).
+      app/tax.py holds `calculate_tax` and `recalc`, which must stay: a blind text replace of "calc" breaks them.
+
+  - id: ag-py-parse-env
+    kind: repo
+    category: agent-feature
+    lang: python
+    prompt: Implement `parse_env` in config/parse.py as its docstring describes. Run the tests when you are done.
+    files:
+      config/__init__.py: ""
+      config/parse.py: |
+        def parse_env(text):
+            """Parse the text of a .env file into a dict of strings.
+
+            Rules:
+            - One `KEY=VALUE` per line. Spaces around the key and around the value are removed.
+            - Blank lines and lines whose first non-space character is `#` are ignored.
+            - A line may start with `export ` (the word and a space); that prefix is ignored.
+            - Only the first `=` splits the line, so a value may contain `=`.
+            - A value in double quotes loses the quotes and keeps everything between them,
+              spaces included. An empty value is allowed and gives an empty string.
+            - A key must start with a capital letter or `_` and hold only capital letters,
+              digits and `_`. Any other key raises ValueError.
+            - A line that is not blank, not a comment and has no `=` raises ValueError.
+            - The message of every ValueError contains `line N`, where N is the number of the
+              line in the text, counted from 1 (blank lines and comments count too).
+            - If a key appears more than once, the last value wins.
+            """
+            raise NotImplementedError
+      run_tests.py: |
+        from config.parse import parse_env
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def error_of(text):
+            try:
+                parse_env(text)
+            except ValueError as e:
+                return str(e)
+            raise AssertionError(f"expected ValueError for {text!r}")
+
+
+        check("simple", parse_env("A=1\nB = two\n"), {"A": "1", "B": "two"})
+        check("comment and blank", parse_env("# settings\n\nPORT=8080\n"), {"PORT": "8080"})
+        check("quotes", parse_env('NAME="Ada Lovelace"\n'), {"NAME": "Ada Lovelace"})
+        assert "line 2" in error_of("A=1\nthis is not valid\n"), "the error must name line 2"
+        print("OK: 4 checks")
+    hidden:
+      run_tests.py: |
+        from config.parse import parse_env
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def error_of(text):
+            try:
+                parse_env(text)
+            except ValueError as e:
+                return str(e)
+            raise AssertionError(f"expected ValueError for {text!r}")
+
+
+        check("simple", parse_env("A=1\nB = two\n"), {"A": "1", "B": "two"})
+        check("comment and blank", parse_env("# settings\n\nPORT=8080\n"), {"PORT": "8080"})
+        check("quotes", parse_env('NAME="Ada Lovelace"\n'), {"NAME": "Ada Lovelace"})
+        assert "line 2" in error_of("A=1\nthis is not valid\n"), "the error must name line 2"
+        check("export prefix", parse_env("export TOKEN=abc\n"), {"TOKEN": "abc"})
+        check("value with =", parse_env("URL=http://x.test/?a=b&c=d\n"), {"URL": "http://x.test/?a=b&c=d"})
+        check("last value wins", parse_env("A=1\nA=2\n"), {"A": "2"})
+        check("quoted spaces kept", parse_env('PAD="  two  "\n'), {"PAD": "  two  "})
+        check("empty value", parse_env("EMPTY=\n"), {"EMPTY": ""})
+        check("indented comment", parse_env("   # note\nX_1=y\n"), {"X_1": "y"})
+        check("no trailing newline", parse_env("A=1"), {"A": "1"})
+        assert "line 1" in error_of("lower=1\n"), "a lower-case key is not valid"
+        assert "line 4" in error_of("# one\n\nA=1\n9KEY=2\n"), "blank lines and comments count"
+        check("empty text", parse_env(""), {})
+        print("OK: 14 checks")
+    reference:
+      config/parse.py: |
+        import re
+
+        _KEY = re.compile(r"^[A-Z_][A-Z0-9_]*$")
+
+
+        def parse_env(text):
+            """Parse the text of a .env file into a dict of strings (rules: see the task)."""
+            result = {}
+            for number, raw in enumerate(text.splitlines(), 1):
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith("export "):
+                    line = line[len("export "):].lstrip()
+                if "=" not in line:
+                    raise ValueError(f"line {number}: missing '='")
+                key, value = line.split("=", 1)
+                key, value = key.strip(), value.strip()
+                if not _KEY.match(key):
+                    raise ValueError(f"line {number}: invalid key {key!r}")
+                if len(value) >= 2 and value[0] == value[-1] == '"':
+                    value = value[1:-1]
+                result[key] = value
+            return result
+    notes: >-
+      Code from a written spec with nine rules. The visible tests cover four of them; the rest (export, `=` in a
+      value, key rules, line numbers that count blank lines) are in the docstring only.
+
+  - id: ag-py-json-format
+    kind: repo
+    category: agent-feature
+    lang: python
+    prompt: >-
+      Add a `json` output format to the export tool. `main(['--format', 'json'])` must return a JSON array
+      with one object per row. Each object has the header fields as its keys, in header order, and no other
+      keys. Use an indent of 2 spaces. The csv format must keep working.
+    files:
+      tool/__init__.py: ""
+      tool/data.py: |
+        HEADER = ["id", "name", "city"]
+        ROWS = [
+            {"id": 1, "name": "Asha", "city": "Pune"},
+            {"id": 2, "name": "Ben", "city": "Leeds"},
+        ]
+      tool/formats.py: |
+        def to_csv(header, rows):
+            lines = [",".join(header)]
+            for row in rows:
+                lines.append(",".join(str(row[key]) for key in header))
+            return "\n".join(lines) + "\n"
+      tool/export.py: |
+        from tool.formats import to_csv
+
+        WRITERS = {"csv": to_csv}
+
+
+        def run(fmt, header, rows):
+            return WRITERS[fmt](header, rows)
+      tool/cli.py: |
+        import argparse
+
+        from tool import data, export
+
+
+        def main(argv=None):
+            parser = argparse.ArgumentParser(prog="export")
+            parser.add_argument("--format", choices=["csv"], default="csv")
+            args = parser.parse_args(argv)
+            return export.run(args.format, data.HEADER, data.ROWS)
+      run_tests.py: |
+        import json
+
+        from tool import data
+        from tool.cli import main
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        check("csv still works", main(["--format", "csv"]), "id,name,city\n1,Asha,Pune\n2,Ben,Leeds\n")
+        check("json rows", json.loads(main(["--format", "json"])), data.ROWS)
+        print("OK: 2 checks")
+    hidden:
+      run_tests.py: |
+        import json
+
+        from tool import data, export
+        from tool.cli import main
+
+
+        def check(name, got, want):
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        check("csv still works", main(["--format", "csv"]), "id,name,city\n1,Asha,Pune\n2,Ben,Leeds\n")
+        check("csv is the default", main([]), "id,name,city\n1,Asha,Pune\n2,Ben,Leeds\n")
+        out = main(["--format", "json"])
+        check("json rows", json.loads(out), data.ROWS)
+        check("indent of 2 spaces", out.strip().splitlines()[:3], ["[", "  {", '    "id": 1,'])
+        got = export.run("json", ["name", "id"], [{"id": 7, "name": "Zed", "extra": True}])
+        pairs = json.loads(got, object_pairs_hook=lambda items: [list(item) for item in items])
+        check("header order, header fields only", pairs, [[["name", "Zed"], ["id", 7]]])
+        try:
+            main(["--format", "xml"])
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError("an unknown format must be rejected by the argument parser")
+        print("OK: 6 checks")
+    reference:
+      tool/formats.py: |
+        import json
+
+
+        def to_csv(header, rows):
+            lines = [",".join(header)]
+            for row in rows:
+                lines.append(",".join(str(row[key]) for key in header))
+            return "\n".join(lines) + "\n"
+
+
+        def to_json(header, rows):
+            return json.dumps([{key: row[key] for key in header} for row in rows], indent=2)
+      tool/export.py: |
+        from tool.formats import to_csv, to_json
+
+        WRITERS = {"csv": to_csv, "json": to_json}
+
+
+        def run(fmt, header, rows):
+            return WRITERS[fmt](header, rows)
+      tool/cli.py: |
+        import argparse
+
+        from tool import data, export
+
+
+        def main(argv=None):
+            parser = argparse.ArgumentParser(prog="export")
+            parser.add_argument("--format", choices=["csv", "json"], default="csv")
+            args = parser.parse_args(argv)
+            return export.run(args.format, data.HEADER, data.ROWS)
+    notes: >-
+      A feature that needs a change in three files (the writer, its registration, the allowed command-line choice).
+      The model has to trace how main() reaches the writer. Hidden checks: key order, header fields only, the indent.
+
+  - id: ag-js-fix-money
+    kind: repo
+    category: agent-fix
+    lang: js
+    prompt: The test in run_tests.cjs fails. Find the cause and fix the code.
+    files:
+      src/money.js: |
+        // Money is kept in whole pence to avoid rounding problems.
+
+        function toPence(amount) {
+          // amount is a string such as "12.50" or "7"
+          return Math.floor(parseFloat(amount) * 100);
+        }
+
+        function formatPence(pence) {
+          return (pence / 100).toFixed(2);
+        }
+
+        module.exports = { toPence, formatPence };
+      src/cart.js: |
+        const { toPence, formatPence } = require('./money.js');
+
+        class Cart {
+          constructor() {
+            this.lines = [];
+          }
+
+          add(name, price, qty = 1) {
+            this.lines.push({ name, pence: toPence(price), qty });
+          }
+
+          totalPence() {
+            return this.lines.reduce((sum, line) => sum + line.pence * line.qty, 0);
+          }
+
+          total() {
+            return formatPence(this.totalPence());
+          }
+        }
+
+        module.exports = { Cart };
+      run_tests.cjs: |
+        const assert = require('node:assert/strict');
+        const { Cart } = require('./src/cart.js');
+
+        const cart = new Cart();
+        cart.add('pen', '19.99');
+        cart.add('ink', '4.35', 2);
+        assert.equal(cart.totalPence(), 2869, 'total in pence');
+        assert.equal(cart.total(), '28.69', 'formatted total');
+        console.log('OK: 2 checks');
+    hidden:
+      run_tests.cjs: |
+        const assert = require('node:assert/strict');
+        const { Cart } = require('./src/cart.js');
+        const { toPence, formatPence } = require('./src/money.js');
+
+        const cart = new Cart();
+        cart.add('pen', '19.99');
+        cart.add('ink', '4.35', 2);
+        assert.equal(cart.totalPence(), 2869, 'total in pence');
+        assert.equal(cart.total(), '28.69', 'formatted total');
+        const cases = { '1.15': 115, '0.07': 7, '5': 500, '2.5': 250, '0.29': 29, '1000000.01': 100000001, '0.10': 10, '8.20': 820 };
+        for (const [text, pence] of Object.entries(cases)) {
+          assert.equal(toPence(text), pence, `toPence(${text})`);
+        }
+        assert.equal(formatPence(5), '0.05', 'formatPence');
+        const empty = new Cart();
+        assert.equal(empty.total(), '0.00', 'empty cart');
+        console.log('OK: 12 checks');
+    reference:
+      src/money.js: |
+        // Money is kept in whole pence to avoid rounding problems.
+
+        function toPence(amount) {
+          // amount is a string such as "12.50" or "7"
+          return Math.round(parseFloat(amount) * 100);
+        }
+
+        function formatPence(pence) {
+          return (pence / 100).toFixed(2);
+        }
+
+        module.exports = { toPence, formatPence };
+    notes: >-
+      JavaScript. The test uses the cart, the bug is in the money helper: floor(parseFloat("19.99") * 100) is 1998.
+      A fix that only repairs the two visible prices fails the hidden values.
+
+  - id: ag-js-title-case
+    kind: repo
+    category: agent-feature
+    lang: js
+    prompt: Add the `titleCase` function that README.md describes to src/text.js and export it. Keep the existing functions.
+    files:
+      README.md: |
+        # text helpers
+
+        ## titleCase(text)
+
+        - Words are separated by spaces. Several spaces count as one. The result has single spaces
+          between the words and no spaces at its ends.
+        - Each word gets an upper-case first letter; the rest of the word becomes lower-case.
+        - The small words `a`, `an`, `the`, `of`, `and`, `in` stay fully lower-case, except when
+          they are the first word.
+        - An empty string, or a string of spaces only, gives an empty string.
+      src/text.js: |
+        function slugify(text) {
+          return text.trim().toLowerCase().split(/\s+/).join('-');
+        }
+
+        function truncate(text, max) {
+          return text.length <= max ? text : text.slice(0, max - 1) + '…';
+        }
+
+        module.exports = { slugify, truncate };
+      run_tests.cjs: |
+        const assert = require('node:assert/strict');
+        const { titleCase } = require('./src/text.js');
+
+        assert.equal(titleCase('the lord of the rings'), 'The Lord of the Rings');
+        assert.equal(titleCase('hello WORLD'), 'Hello World');
+        console.log('OK: 2 checks');
+    hidden:
+      run_tests.cjs: |
+        const assert = require('node:assert/strict');
+        const { titleCase, slugify, truncate } = require('./src/text.js');
+
+        assert.equal(titleCase('the lord of the rings'), 'The Lord of the Rings');
+        assert.equal(titleCase('hello WORLD'), 'Hello World');
+        assert.equal(titleCase('  a tale   of two cities '), 'A Tale of Two Cities');
+        assert.equal(titleCase('war AND peace'), 'War and Peace');
+        assert.equal(titleCase('IN the heart of THE sea'), 'In the Heart of the Sea');
+        assert.equal(titleCase('an inspector calls'), 'An Inspector Calls');
+        assert.equal(titleCase(''), '');
+        assert.equal(titleCase('    '), '');
+        assert.equal(titleCase('x'), 'X');
+        assert.equal(slugify(' Hello  World '), 'hello-world');
+        assert.equal(truncate('abcdef', 4), 'abc…');
+        console.log('OK: 11 checks');
+    reference:
+      src/text.js: |
+        const SMALL = new Set(['a', 'an', 'the', 'of', 'and', 'in']);
+
+        function slugify(text) {
+          return text.trim().toLowerCase().split(/\s+/).join('-');
+        }
+
+        function truncate(text, max) {
+          return text.length <= max ? text : text.slice(0, max - 1) + '…';
+        }
+
+        function titleCase(text) {
+          const words = text.trim().split(/ +/).filter(Boolean);
+          return words
+            .map((word, i) => {
+              const lower = word.toLowerCase();
+              if (i > 0 && SMALL.has(lower)) return lower;
+              return lower[0].toUpperCase() + lower.slice(1);
+            })
+            .join(' ');
+        }
+
+        module.exports = { slugify, truncate, titleCase };
+    notes: >-
+      JavaScript feature from a README. Traps: several spaces, small words in upper case in the input,
+      a small word as the first word, the empty string, and keeping the two old exports.
+
+  # ============================================================ level 2b: tasks on the shared `depot` project
+  # (tasks/projects/depot/ is the base; `mutate` injects the fault, `reference` restores or patches files)
+
+  - id: ag-depot-weight
+    kind: repo
+    category: agent-project-fix
+    lang: python
+    base: depot
+    max_steps: 40
+    prompt: 'A check in run_tests.py fails: the invoice total of one order is wrong. Find the cause and fix the code. README.md holds the business rules.'
+    mutate:
+    - path: depot/orders.py
+      old: weight_g += product.weight_g * line.qty
+      new: weight_g += product.weight_g
+    files:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        check("one saw to a GB customer", total_line(main(["quote", "C-02", "TL-200:1"])), ["Total: £26.69"])
+        check("two bench vices to Ireland", total_line(main(["quote", "C-04", "TL-250:2"])), ["Total: £129.05"])
+
+        print(f"OK: {COUNT} checks")
+    hidden:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        check("one saw to a GB customer", total_line(main(["quote", "C-02", "TL-200:1"])), ["Total: £26.69"])
+        check("two bench vices to Ireland", total_line(main(["quote", "C-04", "TL-250:2"])), ["Total: £129.05"])
+        s = build_service()
+        check("irish order", money(s.place_order("C-04", [OrderLine("TL-250", 2)], MONDAY)), (8464, 1946, 2495, 12905))
+        check("7 seed trays, 2,100 g", money(s.place_order("C-02", [OrderLine("GD-300", 7)], MONDAY)), (4550, 910, 695, 6155))
+        check("9 lights to Norway, 2,160 g", money(s.place_order("C-03", [OrderLine("EL-400", 9)], MONDAY)), (9108, 0, 2995, 12103))
+        check("two lines, 1,680 g", money(s.place_order("C-02", [OrderLine("BK-101", 2), OrderLine("TL-210", 3)], MONDAY)), (5418, 564, 395, 6377))
+        check("one unit", money(s.place_order("C-02", [OrderLine("TL-200", 1)], MONDAY)), (1895, 379, 395, 2669))
+
+        print(f"OK: {COUNT} checks")
+    reference:
+      depot/orders.py: '@base'
+    notes: The order weight leaves out the quantity (orders.py), so a multi-unit order lands in a lower shipping band. The failing check goes through the command line; the cause is three calls away, and shipping.py, the file the symptom points to, is correct. A change to the shipping bands fails the hidden checks.
+
+  - id: ag-depot-cancel
+    kind: repo
+    category: agent-project-fix
+    lang: python
+    base: depot
+    max_steps: 40
+    prompt: '`cancel_order` in depot/orders.py does not follow the rules in README.md (section "Order status"). run_tests.py shows one symptom. Make `cancel_order` follow all of its rules.'
+    mutate:
+    - path: depot/orders.py
+      old: from depot.errors import InvalidOrder
+      new: |-
+        from depot.errors import InvalidOrder
+        from depot.inventory import WAREHOUSES
+    - path: depot/orders.py
+      old: |
+        CANCELLABLE = ("placed", "picked")
+      new: ''
+    - path: depot/orders.py
+      old: |2
+                if order.status not in CANCELLABLE:
+                    raise InvalidOrder(f"an order with status {order.status} cannot be cancelled")
+                for sku, warehouse, units in order.allocations:
+                    self.inventory.receive(sku, warehouse, units)
+      new: |2
+                if order.status == "cancelled":
+                    raise InvalidOrder("the order is cancelled already")
+                for sku, _warehouse, units in order.allocations:
+                    self.inventory.receive(sku, WAREHOUSES[0], units)
+    files:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        s = build_service()
+        order = s.place_order("C-01", [OrderLine("TL-200", 8)], MONDAY)
+        check("stock after the order", stock(s, "TL-200"), [0, 9, 0])
+        s.cancel_order(order.id)
+        check("stock after the cancel", stock(s, "TL-200"), [5, 12, 0])
+
+        print(f"OK: {COUNT} checks")
+    hidden:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        s = build_service()
+        order = s.place_order("C-01", [OrderLine("TL-200", 8)], MONDAY)
+        check("stock after the order", stock(s, "TL-200"), [0, 9, 0])
+        s.cancel_order(order.id)
+        check("stock after the cancel", stock(s, "TL-200"), [5, 12, 0])
+        check("status", order.status, "cancelled")
+        raises("cancel twice", InvalidOrder, lambda: s.cancel_order(order.id))
+        check("stock not returned twice", stock(s, "TL-200"), [5, 12, 0])
+
+        vices = s.place_order("C-02", [OrderLine("TL-250", 7)], MONDAY)
+        check("three warehouses", vices.allocations, [("TL-250", "leeds", 3), ("TL-250", "pune", 3), ("TL-250", "oslo", 1)])
+        s.cancel_order(vices.id)
+        check("each warehouse gets its units back", stock(s, "TL-250"), [3, 3, 3])
+
+        lights = s.place_order("C-02", [OrderLine("EL-400", 20)], MONDAY)
+        s.advance(lights.id)
+        check("a picked order can be cancelled", s.cancel_order(lights.id).status, "cancelled")
+        check("lights back", stock(s, "EL-400"), [15, 15, 15])
+
+        shipped = s.place_order("C-02", [OrderLine("EL-400", 1)], MONDAY)
+        s.advance(shipped.id)
+        s.advance(shipped.id)
+        raises("a shipped order cannot be cancelled", InvalidOrder, lambda: s.cancel_order(shipped.id))
+        check("shipped order keeps its status", shipped.status, "shipped")
+        check("nothing returned for the shipped order", stock(s, "EL-400"), [14, 15, 15])
+        s.advance(shipped.id)
+        raises("a delivered order cannot be cancelled", InvalidOrder, lambda: s.cancel_order(shipped.id))
+        raises("unknown order", InvalidOrder, lambda: s.cancel_order("ORD-9999"))
+
+        print(f"OK: {COUNT} checks")
+    reference:
+      depot/orders.py: '@base'
+    notes: 'Two rules are broken: the units all go back to the first warehouse, and a shipped or delivered order can be cancelled. The visible check shows only the first. The prompt points to the README section, which states both; a model that stops when the one visible check passes fails.'
+
+  - id: ag-depot-coupon
+    kind: repo
+    category: agent-project-feature
+    lang: python
+    base: depot
+    max_steps: 50
+    prompt: Implement the coupon feature that README.md describes in its section "Coupons". run_tests.py shows a part of the expected behaviour.
+    mutate:
+    - path: README.md
+      old: |
+        ### Reports
+      new: |
+        ### Coupons
+
+        - `place_order(customer_id, lines, placed_on, method="standard", coupon=None)` takes an optional coupon code.
+        - The known codes are in `pricing.COUPONS`: `SPRING10` gives 10 %, `TRADE5` gives 5 %.
+        - The coupon percentage is added to the volume and tier percentages of every line. The sum is capped at 30 %.
+        - An unknown code raises `InvalidOrder`, and no stock is taken.
+        - The order stores the code in `Order.coupon` (`None` when no coupon was used). `storage.order_to_dict` writes it
+          under the key `coupon` and `storage.order_from_dict` reads it back.
+        - The invoice has the line `Coupon: SPRING10` directly after the `Date:` line when a coupon was used, and no such
+          line otherwise.
+        - The command line takes it as `quote ... --coupon CODE`.
+
+        ### Reports
+    files:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        s = build_service()
+        order = s.place_order("C-02", [OrderLine("TL-200", 1)], MONDAY, coupon="SPRING10")
+        line = order.lines[0]
+        check("line with coupon", (line.net_pence, line.discount_pence, line.total_pence), (1895, 189, 1706))
+        check("coupon stored", order.coupon, "SPRING10")
+        raises("unknown coupon", InvalidOrder, lambda: s.place_order("C-02", [OrderLine("TL-200", 1)], MONDAY, coupon="NOPE"))
+
+        print(f"OK: {COUNT} checks")
+    hidden:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        INVOICE = """Invoice ORD-0001
+        Customer: Asha Kulkarni (C-02)
+        Date: 2026-03-02
+
+        SKU      Qty  Description                   Total
+        TL-200     1  Folding Hand Saw             £18.95
+
+        Subtotal: £18.95
+        VAT: £3.79
+        Shipping (standard): £3.95
+        Total: £26.69
+        Delivery estimate: 2026-03-05
+        """
+
+        import json
+
+        s = build_service()
+        order = s.place_order("C-02", [OrderLine("TL-200", 1)], MONDAY, coupon="SPRING10")
+        line = order.lines[0]
+        check("line with coupon", (line.net_pence, line.discount_pence, line.total_pence), (1895, 189, 1706))
+        check("coupon stored", order.coupon, "SPRING10")
+        check("order money with coupon", money(order), (1706, 341, 395, 2442))
+        check("known codes", pricing.COUPONS, {"SPRING10": 10, "TRADE5": 5})
+
+        raises("unknown coupon", InvalidOrder, lambda: s.place_order("C-02", [OrderLine("BK-101", 5)], MONDAY, coupon="NOPE"))
+        check("no stock taken for an unknown coupon", stock(s, "BK-101"), [40, 0, 10])
+
+        capped = s.place_order("C-01", [OrderLine("GD-300", 100)], MONDAY, coupon="SPRING10")
+        check("capped at 30 %", (capped.lines[0].net_pence, capped.lines[0].discount_pence, capped.lines[0].total_pence), (65000, 19500, 45500))
+        partner = s.place_order("C-03", [OrderLine("BK-102", 1)], MONDAY, coupon="TRADE5")
+        check("tier + coupon", (partner.lines[0].discount_pence, partner.lines[0].total_pence), (416, 2034))
+
+        plain = s.place_order("C-02", [OrderLine("TL-200", 1)], MONDAY)
+        check("no coupon", plain.coupon, None)
+        check("money without coupon", money(plain), (1895, 379, 395, 2669))
+
+        from depot.invoice import format_invoice
+        text = format_invoice(order, s.customers["C-02"], s.catalog).splitlines()
+        check("coupon line after the date", text[2:5], ["Date: 2026-03-02", "Coupon: SPRING10", ""])
+        check("no coupon line without a coupon", [l for l in format_invoice(plain, s.customers["C-02"], s.catalog).splitlines() if "oupon" in l], [])
+
+        data = json.loads(json.dumps(storage.order_to_dict(order)))
+        check("coupon in the dict", data["coupon"], "SPRING10")
+        check("round trip with coupon", storage.order_from_dict(data), order)
+        plain_data = json.loads(json.dumps(storage.order_to_dict(plain)))
+        check("None in the dict", plain_data["coupon"], None)
+        check("round trip without coupon", storage.order_from_dict(plain_data), plain)
+
+        out = main(["quote", "C-02", "TL-200:1", "--coupon", "SPRING10"])
+        check("command line coupon line", "Coupon: SPRING10" in out.splitlines(), True)
+        check("command line total", total_line(out), ["Total: £24.42"])
+        check("command line without coupon", main(["quote", "C-02", "TL-200:1"]), INVOICE)
+
+        print(f"OK: {COUNT} checks")
+    reference:
+      depot/models.py:
+        patch:
+        - old: '    status: str = "placed"'
+          new: |2-
+                status: str = "placed"
+                coupon: str | None = None
+      depot/pricing.py:
+        patch:
+        - old: 'TIER_PERCENT = {"standard": 0, "trade": 8, "partner": 12}'
+          new: |-
+            TIER_PERCENT = {"standard": 0, "trade": 8, "partner": 12}
+            COUPONS = {"SPRING10": 10, "TRADE5": 5}   # code -> percent
+            MAX_DISCOUNT_PERCENT = 30
+        - old: 'def price_line(product, qty, tier):'
+          new: 'def price_line(product, qty, tier, coupon=None):'
+        - old: '    percent = volume_percent(qty) + TIER_PERCENT[tier]'
+          new: |2-
+                percent = volume_percent(qty) + TIER_PERCENT[tier] + (COUPONS[coupon] if coupon else 0)
+                percent = min(percent, MAX_DISCOUNT_PERCENT)
+      depot/orders.py:
+        patch:
+        - old: from depot.pricing import price_line
+          new: from depot.pricing import COUPONS, price_line
+        - old: 'placed_on, method="standard"):'
+          new: 'placed_on, method="standard", coupon=None):'
+        - old: |2
+                    customer = self.customers[customer_id]
+          new: |2
+                    customer = self.customers[customer_id]
+                    if coupon is not None and coupon not in COUPONS:
+                        raise InvalidOrder(f"unknown coupon {coupon!r}")
+        - old: price_line(product, line.qty, customer.tier)
+          new: price_line(product, line.qty, customer.tier, coupon)
+        - old: '            total_pence=subtotal + vat_total + shipping,'
+          new: '            total_pence=subtotal + vat_total + shipping, coupon=coupon,'
+      depot/invoice.py:
+        patch:
+        - old: |2
+                    f"Date: {order.placed_on.isoformat()}",
+          new: |2
+                    f"Date: {order.placed_on.isoformat()}",
+                    *([f"Coupon: {order.coupon}"] if order.coupon else []),
+      depot/storage.py:
+        patch:
+        - old: |2
+                    "status": order.status,
+          new: |2
+                    "status": order.status,
+                    "coupon": order.coupon,
+        - old: |2
+                    status=data["status"],
+          new: |2
+                    status=data["status"],
+                    coupon=data.get("coupon"),
+      depot/cli.py:
+        patch:
+        - old: |2
+                quote.add_argument("--express", action="store_true")
+          new: |2
+                quote.add_argument("--express", action="store_true")
+                quote.add_argument("--coupon")
+        - old: '"express" if args.express else "standard")'
+          new: '"express" if args.express else "standard", coupon=args.coupon)'
+    notes: A feature from a written spec that touches six files (model, pricing, order service, invoice, storage, command line). The visible checks cover the price and the unknown code only. The 30 % cap, the invoice line, the storage key and the command-line flag are in the README; each one is a place to stop too early.
+
+  - id: ag-depot-dates
+    kind: repo
+    category: agent-project-fix
+    lang: python
+    base: depot
+    max_steps: 40
+    prompt: Some delivery estimates are wrong; run_tests.py shows one. Make depot/dates.py follow README.md, section "Delivery estimate".
+    mutate:
+    - path: depot/dates.py
+      old: '    return day.weekday() < 5 and day not in HOLIDAYS'
+      new: '    return day.weekday() < 5'
+    - path: depot/dates.py
+      old: |2-
+            day = next_business_day(day)
+            while n > 0:
+      new: '    while n > 0:'
+    files:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        check("standard from a Monday", dates.delivery_estimate(MONDAY, "standard"), date(2026, 3, 5))
+        check("standard over Easter", dates.delivery_estimate(date(2026, 4, 2), "standard"), date(2026, 4, 9))
+
+        print(f"OK: {COUNT} checks")
+    hidden:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        check("standard from a Monday", dates.delivery_estimate(MONDAY, "standard"), date(2026, 3, 5))
+        check("standard over Easter", dates.delivery_estimate(date(2026, 4, 2), "standard"), date(2026, 4, 9))
+        check("standard from a Friday", dates.delivery_estimate(date(2026, 3, 6), "standard"), date(2026, 3, 11))
+        check("express from a Saturday", dates.delivery_estimate(date(2026, 3, 7), "express"), date(2026, 3, 10))
+        check("standard from a Sunday", dates.delivery_estimate(date(2026, 3, 8), "standard"), date(2026, 3, 12))
+        check("express before Christmas", dates.delivery_estimate(date(2025, 12, 24), "express"), date(2025, 12, 29))
+        check("express placed on a holiday", dates.delivery_estimate(date(2026, 1, 1), "express"), date(2026, 1, 5))
+        check("standard placed on Good Friday", dates.delivery_estimate(date(2026, 4, 3), "standard"), date(2026, 4, 10))
+        check("a holiday is not a business day", dates.is_business_day(date(2026, 4, 6)), False)
+        check("the day after is one", dates.is_business_day(date(2026, 4, 7)), True)
+        s = build_service()
+        order = s.place_order("C-02", [OrderLine("TL-200", 1)], date(2026, 3, 7), "express")
+        check("estimate of an order", s.estimate(order.id), date(2026, 3, 10))
+
+        print(f"OK: {COUNT} checks")
+    reference:
+      depot/dates.py: '@base'
+    notes: 'Two bugs in one file: bank holidays count as business days, and an order placed on a weekend is not moved to the next business day first. The visible check shows the first only; the second is the last rule of the README section. Date arithmetic with several interacting rules.'
+
+  - id: ag-depot-rename-field
+    kind: repo
+    category: agent-project-refactor
+    lang: python
+    base: depot
+    max_steps: 40
+    prompt: Rename the field `total_pence` of the class `PricedLine` (depot/models.py) to `line_total_pence` and update every use of it. The field `total_pence` of the class `Order` must keep its name. The behaviour must not change.
+    files:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        s = build_service()
+        order = s.place_order("C-02", [OrderLine("TL-200", 1)], MONDAY)
+        check("line total under the new name", order.lines[0].line_total_pence, 1895)
+        check("order total keeps its name", order.total_pence, 2669)
+        check("category report", reports.sales_by_category([order], s.catalog), [("tools", 1895)])
+        check("invoice row", main(["quote", "C-02", "TL-200:1"]).splitlines()[5], "TL-200     1  Folding Hand Saw             £18.95")
+
+        print(f"OK: {COUNT} checks")
+    hidden:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        INVOICE = """Invoice ORD-0001
+        Customer: Asha Kulkarni (C-02)
+        Date: 2026-03-02
+
+        SKU      Qty  Description                   Total
+        TL-200     1  Folding Hand Saw             £18.95
+
+        Subtotal: £18.95
+        VAT: £3.79
+        Shipping (standard): £3.95
+        Total: £26.69
+        Delivery estimate: 2026-03-05
+        """
+
+        import dataclasses
+        import json
+
+        from depot.models import Order, PricedLine
+
+        s = build_service()
+        order = s.place_order("C-02", [OrderLine("TL-200", 1)], MONDAY)
+        check("line total under the new name", order.lines[0].line_total_pence, 1895)
+        check("order total keeps its name", order.total_pence, 2669)
+        check("category report", reports.sales_by_category([order], s.catalog), [("tools", 1895)])
+        check("invoice", main(["quote", "C-02", "TL-200:1"]), INVOICE)
+        line_fields = {f.name for f in dataclasses.fields(PricedLine)}
+        check("old name gone from PricedLine", "total_pence" in line_fields, False)
+        check("PricedLine fields", line_fields, {"sku", "qty", "net_pence", "discount_pence", "line_total_pence", "vat_pence"})
+        check("Order still has total_pence", "total_pence" in {f.name for f in dataclasses.fields(Order)}, True)
+        data = json.loads(json.dumps(storage.order_to_dict(order)))
+        check("order key kept in the dict", data["total_pence"], 2669)
+        check("line keys in the dict", sorted(data["lines"][0]), ["discount_pence", "line_total_pence", "net_pence", "qty", "sku", "vat_pence"])
+        check("round trip", storage.order_from_dict(data), order)
+        second = s.place_order("C-04", [OrderLine("TL-250", 2), OrderLine("BK-101", 1)], MONDAY)
+        check("subtotal of two lines", second.subtotal_pence, 8464 + 1196)
+        check("daily totals", reports.daily_totals(list(s.orders.values())), [(MONDAY, 2669 + second.total_pence)])
+        check("top products", reports.top_products(list(s.orders.values()), 1), [("TL-250", 2)])
+
+        print(f"OK: {COUNT} checks")
+    reference:
+      depot/models.py:
+        patch:
+        - old: '    total_pence: int      # net - discount'
+          new: '    line_total_pence: int      # net - discount'
+      depot/orders.py:
+        patch:
+        - old: sum(line.total_pence for line in priced)
+          new: sum(line.line_total_pence for line in priced)
+      depot/invoice.py:
+        patch:
+        - old: format_pence(line.total_pence)
+          new: format_pence(line.line_total_pence)
+      depot/reports.py:
+        patch:
+        - old: totals.get(category, 0) + line.total_pence
+          new: totals.get(category, 0) + line.line_total_pence
+    notes: 'A rename that text search cannot do alone: `total_pence` is a field of two classes, used side by side in orders.py, invoice.py, reports.py and storage.py. Only the uses on a line object change. A blind replace breaks the order total and the storage keys.'
+
+  - id: ag-depot-merge
+    kind: repo
+    category: agent-project-fix
+    lang: python
+    base: depot
+    max_steps: 40
+    prompt: An order that names the same SKU on two lines gets the wrong price. run_tests.py shows it. Find the cause and fix the code. README.md holds the business rules.
+    mutate:
+    - path: depot/orders.py
+      old: '        lines = validate_order(customer_id, lines, self.customers, self.catalog)'
+      new: '        validate_order(customer_id, lines, self.customers, self.catalog)'
+    files:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        s = build_service()
+        order = s.place_order("C-02", [OrderLine("TL-210", 6), OrderLine("TL-210", 6)], MONDAY)
+        check("one merged line with the volume discount",
+              [(l.sku, l.qty, l.net_pence, l.discount_pence, l.total_pence) for l in order.lines],
+              [("TL-210", 12, 11280, 564, 10716)])
+
+        print(f"OK: {COUNT} checks")
+    hidden:
+      run_tests.py: |
+        from datetime import date
+
+        from depot import dates, pricing, reports, storage
+        from depot.cli import build_service, main
+        from depot.errors import InvalidOrder, OutOfStock
+        from depot.models import OrderLine
+
+        COUNT = 0
+
+
+        def check(name, got, want):
+            global COUNT
+            COUNT += 1
+            if got != want:
+                raise AssertionError(f"{name}: got {got!r}, expected {want!r}")
+
+
+        def raises(name, error, fn):
+            global COUNT
+            COUNT += 1
+            try:
+                fn()
+            except error:
+                return
+            raise AssertionError(f"{name}: expected {error.__name__}")
+
+
+        MONDAY = date(2026, 3, 2)
+        WAREHOUSES = ("leeds", "pune", "oslo")
+
+
+        def stock(service, sku):
+            return [service.inventory.on_hand(sku, w) for w in WAREHOUSES]
+
+
+        def money(order):
+            return (order.subtotal_pence, order.vat_pence, order.shipping_pence, order.total_pence)
+
+
+        def total_line(text):
+            return [line for line in text.splitlines() if line.startswith("Total:")]
+
+        s = build_service()
+        order = s.place_order("C-02", [OrderLine("TL-210", 6), OrderLine("TL-210", 6)], MONDAY)
+        check("one merged line with the volume discount",
+              [(l.sku, l.qty, l.net_pence, l.discount_pence, l.total_pence) for l in order.lines],
+              [("TL-210", 12, 11280, 564, 10716)])
+        check("one allocation for the merged line", order.allocations, [("TL-210", "pune", 12)])
+
+        raises("merged quantity above the stock", OutOfStock,
+               lambda: s.place_order("C-02", [OrderLine("GD-310", 2), OrderLine("GD-310", 2)], MONDAY))
+        check("nothing taken", stock(s, "GD-310"), [2, 0, 1])
+
+        mixed = s.place_order("C-02", [OrderLine("TL-210", 1), OrderLine("BK-101", 1), OrderLine("TL-210", 9)], MONDAY)
+        check("first-seen order of the merged lines", [(l.sku, l.qty) for l in mixed.lines], [("TL-210", 10), ("BK-101", 1)])
+        check("volume discount on the merged quantity", (mixed.lines[0].discount_pence, mixed.lines[0].total_pence), (470, 8930))
+
+        single = s.place_order("C-01", [OrderLine("TL-200", 8)], MONDAY)
+        check("an order without repeats is unchanged", money(single), (13948, 2789, 0, 16737))
+        raises("merged quantity above 999", InvalidOrder,
+               lambda: s.place_order("C-02", [OrderLine("GD-300", 500), OrderLine("GD-300", 500)], MONDAY))
+
+        print(f"OK: {COUNT} checks")
+    reference:
+      depot/orders.py: '@base'
+    notes: validation.py merges the lines correctly and returns them, but the order service throws the result away and prices the unmerged lines. The cause is one line in orders.py; finding it needs the path validation -> order service. With the bug, stock is also planned per unmerged line, which the hidden checks cover.

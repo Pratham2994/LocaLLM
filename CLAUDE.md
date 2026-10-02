@@ -22,6 +22,8 @@ uv run lab probe configs\x.yaml      # raw JSON of one request: do this after an
 uv run lab report                    # results\report.md + results\charts\*.png (correct answers/hour etc.)
 uv run lab needle configs\x.yaml --sizes 4096 16384 32768 --depths 0.1 0.5 0.9
 uv run lab bench configs\x.yaml --pp 512 --tg 128 --depth 0,4096
+uv run lab agent --selftest          # agent tier: prove the graders (run after editing tasks\agent.yaml)
+uv run lab agent configs\agent\x.yaml --tasks "ag-depot-*" --repeats 1   # tool-call + mini repo tasks, results\agent.jsonl
 ```
 
 While a run is in progress, `uv run` may fail to reinstall `lab.exe` (locked); use `uv run --no-sync ...`.
@@ -35,10 +37,12 @@ While a run is in progress, `uv run` may fail to reinstall `lab.exe` (locked); u
   `configs/archive/`: configs whose model files were deleted (not loaded; results kept in `runs.jsonl`).
 - `tasks/tasks.yaml`: the task set. Every auto-checked task has a `reference` (must pass) and
   ideally a `wrong` answer (must fail). Run `uv run lab selftest` after editing tasks.
+- `tasks/agent.yaml` + `tasks/projects/depot/`: the agent tier (tool-call tasks, mini repo tasks, tasks on a
+  shared made-up project). `configs/agent/*.yaml`: its configs (thinking on, 32K context).
 - `src/lab/`: `config.py` (YAML loading, server command), `server.py` (start/health/log parsing),
   `client.py` (streamed request + timings), `checks.py` (graders + sandbox), `runner.py`
-  (resumable loop), `report.py`, `needle.py`, `bench.py`, `cli.py`.
-- `results/runs.jsonl`, `needle.jsonl`, `bench.jsonl`: append-only, committed to git.
+  (resumable loop), `agent.py` (agent tier: tools, loop, graders), `report.py`, `needle.py`, `bench.py`, `cli.py`.
+- `results/runs.jsonl`, `agent.jsonl`, `needle.jsonl`, `bench.jsonl`: append-only, committed to git.
   `results/report.md` + `results/charts/`: generated, committed. `results/logs/`: server logs, not committed.
 
 ## Rules that are easy to break

@@ -1,0 +1,11 @@
+﻿name: agent-gptoss-20b-think
+model: gpt-oss-20b-Q4_K_M.gguf
+backend: cuda-moe
+sampling: gptoss-card
+server_args: ["--n-cpu-moe", "6"]   # reasoning cannot be switched off; default effort (medium)
+ctx: 32768
+kv_cache: f16
+thinking: true
+repeats: 3
+max_tokens: 8192
+

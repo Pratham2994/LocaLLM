@@ -1,0 +1,11 @@
+﻿name: agent-katcoder-v25-dev-think
+model: Kwaipilot_KAT-Coder-V2.5-Dev-Q4_K_M.gguf
+backend: cuda-moe
+sampling: qwen35-think-coding
+server_args: ["--n-cpu-moe", "26"]
+ctx: 32768
+kv_cache: f16
+thinking: true
+repeats: 3
+max_tokens: 8192
+

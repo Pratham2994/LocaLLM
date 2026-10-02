@@ -1,6 +1,6 @@
 # Harness report
 
-Generated 2026-10-02 09:44 from `runs.jsonl` (2975 current runs; 34 tasks in `tasks.yaml`). Sorted by correct answers per hour.
+Generated 2026-10-02 20:38 from `runs.jsonl` (3519 current runs; 34 tasks in `tasks.yaml`). Sorted by correct answers per hour.
 
 - **Correct answers per hour** = passed auto-graded runs ÷ hours of wall time spent on them.
 - Thinking-on configs run only the tasks marked `thinking: on/both`, so compare them with care.
@@ -21,11 +21,14 @@ Generated 2026-10-02 09:44 from `runs.jsonl` (2975 current runs; 34 tasks in `ta
 | `pc:qwen35-4b-q4km-vulkanpc-nothink` | Q4_K_M | 2.74 | off | 120 | 75/115 | **65%** | **851** | 1.4 | 0.1 | 133.4 | 317 | 3.69 | 5 | 0 |
 | `pc:gemma4-26b-a4b-qat-mtp-cuda-nothink` | UD-Q4_K_XL | 14.25 | off | 170 | 154/165 | **93%** | **808** | 2.2 | 0.4 | 123.7 | 423 | 15.54 | 5 | 4 |
 | `pc:gptoss-20b-q4km-cuda-lowreason` | Q4_K_M | 11.62 | off | 170 | 134/165 | **81%** | **792** | 2.9 | 1.1 | 119.0 | 400 | 11.50 | 5 | 0 |
+| `pc:empero-qwen38-35b-a3b-distill-q4km-mtp-cuda-nothink` | Q4_K_M | 21.71 | off | 170 | 131/165 | **79%** | **778** | 2.6 | 0.8 | 105.8 | 294 | 21.49 | 5 | 0 |
 | `pc:ornith15-9b-q8-cardsampling-cuda-nothink` | Q8_0 | 9.79 | off | 120 | 74/115 | **64%** | **692** | 2.3 | 0.1 | 64.6 | 207 | 9.55 | 5 | 0 |
 | `pc:ornith15-35b-a3b-q4km-mtp-cuda-nothink` | Q4_K_M | 21.71 | off | 170 | 121/165 | **73%** | **691** | 2.8 | 0.8 | 93.8 | 277 | 21.49 | 5 | 0 |
+| `pc:katcoder-v25-dev-q4km-cuda-nothink` | Q4_K_M | 21.39 | off | 170 | 139/165 | **84%** | **648** | 3.4 | 0.8 | 72.5 | 273 | 21.30 | 5 | 0 |
 | `pc:qwen38-27b-gsqrco-iq2xs-mtp-cuda-nothink` | IQ2_XS | 8.77 | off | 170 | 136/165 | **82%** | **632** | 3.8 | 0.3 | 71.1 | 311 | 9.95 | 5 | 0 |
 | `pc:qwen36-35b-a3b-udq4km-mtp-cuda-nothink` | Q4_K_M | 22.66 | off | 170 | 145/165 | **88%** | **613** | 3.1 | 0.8 | 98.7 | 409 | 22.77 | 5 | 0 |
 | `pc:ornith15-9b-q8-cuda-nothink` | Q8_0 | 9.79 | off | 120 | 78/115 | **68%** | **581** | 2.6 | 0.1 | 61.2 | 243 | 9.55 | 5 | 1 |
+| `pc:qwen36-35b-a3b-hauhau-uncensored-q4km-cuda-nothink` | Q4_K_M | 21.17 | off | 170 | 145/165 | **88%** | **506** | 3.9 | 0.8 | 73.8 | 389 | 20.97 | 5 | 0 |
 | `pc:qwen35-4b-q4km-cuda-nothink` | Q4_K_M | 2.74 | off | 170 | 87/165 | **53%** | **497** | 1.6 | 0.1 | 140.0 | 513 | 3.68 | 5 | 3 |
 | `pc:qwen35-9b-q8-cuda-nothink` | Q8_0 | 9.53 | off | 170 | 105/165 | **64%** | **317** | 3.7 | 0.1 | 61.4 | 433 | 9.55 | 5 | 0 |
 | `laptop:gemma4-e4b-qat-mtp-vulkan-nothink` | UD-Q4_K_XL | 4.22 | off | 25 | 19/23 | **83%** | **218** | 5.9 | 1.0 | 25.7 | 314 | 4.87 | 2 | 0 |
@@ -36,6 +39,7 @@ Generated 2026-10-02 09:44 from `runs.jsonl` (2975 current runs; 34 tasks in `ta
 | `laptop:gemma4-e4b-q4km-vulkan-nothink` | Q4_K_M | 5.34 | off | 24 | 19/23 | **83%** | **110** | 12.1 | 1.1 | 13.9 | 343 | 5.69 | 1 | 0 |
 | `laptop:gemma4-e4b-qat-udq4kxl-vulkan-nothink` | UD-Q4_K_XL | 4.22 | off | 25 | 19/23 | **83%** | **99** | 15.3 | 0.9 | 12.3 | 334 | 4.73 | 2 | 0 |
 | `pc:gemma4-26b-a4b-qat-mtp-cuda-think` | UD-Q4_K_XL | 14.25 | on | 36 | 33/36 | **92%** | **94** | 24.9 | 22.7 | 117.3 | 3957 | 15.54 | 0 | 0 |
+| `pc:laguna-xs21-q4km-cuda-nothink` | Q4_K_M | 19.56 | off | 34 | 13/33 | **39%** | **87** | 13.5 | 11.0 | 78.8 | 1191 | 20.17 | 1 | 1 |
 | `laptop:qwen35-2b-q4km-vulkan-nothink` | Q4_K_M | 1.28 | off | 24 | 9/23 | **39%** | **81** | 7.1 | 0.6 | 26.8 | 434 | 1.86 | 1 | 1 |
 | `pc:qwen38-27b-gsqrco-iq2xs-mtp-cuda-think` | IQ2_XS | 8.77 | on | 36 | 33/36 | **92%** | **80** | 14.1 | 10.7 | 62.7 | 2358 | 9.95 | 0 | 3 |
 | `laptop:qwen35-9b-q4km-vulkan-nothink` | Q4_K_M | 5.68 | off | 24 | 17/23 | **74%** | **79** | 18.9 | 2.0 | 9.1 | 268 | 5.97 | 1 | 0 |
@@ -58,11 +62,14 @@ Generated 2026-10-02 09:44 from `runs.jsonl` (2975 current runs; 34 tasks in `ta
 | `pc:qwen35-4b-q4kmpc` | 13/30 | 10/20 | 13/20 | 0/5 | 14/15 | 15/15 | 10/10 |
 | `pc:gemma4-26b-a4b-qat-mtp-cuda` | 43/50 | 25/25 | 30/30 | 6/10 | 25/25 | 15/15 | 10/10 |
 | `pc:gptoss-20b-q4km-cuda-lowreason` | 32/50 | 22/25 | 28/30 | 4/10 | 23/25 | 15/15 | 10/10 |
+| `pc:empero-qwen38-35b-a3b-distill-q4km-mtp-cuda` | 30/50 | 22/25 | 30/30 | 0/10 | 24/25 | 15/15 | 10/10 |
 | `pc:ornith15-9b-q8-cardsampling-cuda` | 8/30 | 17/20 | 15/20 | 0/5 | 14/15 | 10/15 | 10/10 |
 | `pc:ornith15-35b-a3b-q4km-mtp-cuda` | 26/50 | 23/25 | 28/30 | 0/10 | 24/25 | 10/15 | 10/10 |
+| `pc:katcoder-v25-dev-q4km-cuda` | 36/50 | 25/25 | 30/30 | 0/10 | 25/25 | 13/15 | 10/10 |
 | `pc:qwen38-27b-gsqrco-iq2xs-mtp-cuda` | 37/50 | 23/25 | 26/30 | 1/10 | 25/25 | 14/15 | 10/10 |
 | `pc:qwen36-35b-a3b-udq4km-mtp-cuda` | 41/50 | 25/25 | 30/30 | 0/10 | 25/25 | 15/15 | 9/10 |
 | `pc:ornith15-9b-q8-cuda` | 9/30 | 18/20 | 15/20 | 0/5 | 15/15 | 11/15 | 10/10 |
+| `pc:qwen36-35b-a3b-hauhau-uncensored-q4km-cuda` | 43/50 | 22/25 | 30/30 | 0/10 | 25/25 | 15/15 | 10/10 |
 | `pc:qwen35-4b-q4km-cuda` | 14/50 | 10/25 | 18/30 | 0/10 | 25/25 | 11/15 | 9/10 |
 | `pc:qwen35-9b-q8-cuda` | 16/50 | 25/25 | 16/30 | 0/10 | 25/25 | 13/15 | 10/10 |
 | `laptop:gemma4-e4b-qat-mtp` | 3/6 | 4/4 | 4/4 | 0/1 | 3/3 | 3/3 | 2/2 |
@@ -73,6 +80,7 @@ Generated 2026-10-02 09:44 from `runs.jsonl` (2975 current runs; 34 tasks in `ta
 | `laptop:gemma4-e4b-q4km` | 3/6 | 4/4 | 4/4 | 0/1 | 3/3 | 3/3 | 2/2 |
 | `laptop:gemma4-e4b-qat-udq4kxl` | 4/6 | 4/4 | 3/4 | 0/1 | 3/3 | 3/3 | 2/2 |
 | `pc:gemma4-26b-a4b-qat-mtp-cuda-think` | – | 15/15 | – | 3/6 | 15/15 | – | – |
+| `pc:laguna-xs21-q4km-cuda` | 4/10 | 2/5 | 1/6 | 0/2 | 4/5 | 1/3 | 1/2 |
 | `laptop:qwen35-2b-q4km` | 1/6 | 2/4 | 1/4 | 0/1 | 3/3 | 1/3 | 1/2 |
 | `pc:qwen38-27b-gsqrco-iq2xs-mtp-cuda-think` | – | 15/15 | – | 3/6 | 15/15 | – | – |
 | `laptop:qwen35-9b-q4km` | 3/6 | 4/4 | 3/4 | 0/1 | 3/3 | 2/3 | 2/2 |
@@ -84,42 +92,42 @@ Generated 2026-10-02 09:44 from `runs.jsonl` (2975 current runs; 34 tasks in `ta
 
 ✓ = passed every repeat, ✗ = failed every repeat, `p/n` = mixed, M = needs manual grading, blank = not run.
 
-| Task | Category | `pc:gemma4-12b-qat-mtp-cuda` | `pc:gemma4-e4b-qat-mtp-cuda` | `pc:gemma4-e4b-qat-udq4kxl-cuda-b11157` | `pc:gemma4-e4b-qat-udq4kxlpc` | `pc:qwen35-4b-q4km-cuda-b11157` | `pc:gemma4-e4b-qat-udq4kxl-cuda` | `pc:gemma4-26b-a4b-qat-cuda` | `pc:gemma4-12b-qat-udq4kxl-cuda` | `pc:qwen35-4b-q4kmpc` | `pc:gemma4-26b-a4b-qat-mtp-cuda` | `pc:gptoss-20b-q4km-cuda-lowreason` | `pc:ornith15-9b-q8-cardsampling-cuda` | `pc:ornith15-35b-a3b-q4km-mtp-cuda` | `pc:qwen38-27b-gsqrco-iq2xs-mtp-cuda` | `pc:qwen36-35b-a3b-udq4km-mtp-cuda` | `pc:ornith15-9b-q8-cuda` | `pc:qwen35-4b-q4km-cuda` | `pc:qwen35-9b-q8-cuda` | `laptop:gemma4-e4b-qat-mtp` | `pc:gemma4-12b-qat-mtp-cuda-think` | `laptop:qwen35-4b-q4km` | `laptop:phi4-mini-q4km` | `laptop:qwen38-4b-distill-q4km` | `laptop:gemma4-e4b-q4km` | `laptop:gemma4-e4b-qat-udq4kxl` | `pc:gemma4-26b-a4b-qat-mtp-cuda-think` | `laptop:qwen35-2b-q4km` | `pc:qwen38-27b-gsqrco-iq2xs-mtp-cuda-think` | `laptop:qwen35-9b-q4km` | `laptop:qwen35-4b-q8` | `pc:qwen36-35b-a3b-udq4km-mtp-cuda-think` | `laptop:qwen35-4b-q4km-think` |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `py-parse-date` | small function | 4/5 | 4/5 | ✓ | ✓ | 3/5 | 4/5 | ✓ | ✓ | 4/5 | ✓ | ✓ | 2/5 | 3/5 | ✓ | ✓ | 2/5 | 3/5 | 2/5 | ✓ |  | ✓ | ✓ | ✗ | ✓ | ✓ |  | ✗ |  | ✓ | ✗ |  |  |
-| `py-normalise-order` | small function | ✓ | 1/5 | 4/5 | 3/5 | 1/5 | 3/5 | ✓ | ✓ | 2/5 | 4/5 | 3/5 | ✗ | ✓ | ✓ | ✓ | 1/5 | 2/5 | ✗ | ✗ |  | ✓ | ✗ | ✗ | ✗ | ✗ |  | ✗ |  | ✓ | ✗ |  |  |
-| `py-merge-slots` | small function | ✓ | ✓ | ✓ | ✓ | 3/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✓ |  | ✓ | ✓ |  |  |
-| `js-parse-query` | small function | ✓ | 2/5 | 1/5 | 3/5 | 4/5 | 1/5 | ✓ | ✓ | 2/5 | ✓ | ✓ | 1/5 | ✓ | 4/5 | ✓ | 2/5 | 1/5 | 3/5 | ✗ |  | ✓ | ✗ | ✗ | ✓ | ✓ |  | ✗ |  | ✗ | ✓ |  |  |
-| `js-deep-merge` | small function | 3/5 | 2/5 | ✗ | 3/5 | ✗ | ✗ | ✓ | 3/5 | ✗ | ✓ | 3/5 | ✗ | 4/5 | 3/5 | ✓ | ✗ | ✗ | 2/5 | ✓ |  | ✗ | ✗ | ✗ | ✗ | ✓ |  | ✗ |  | ✗ | ✗ |  |  |
-| `cpp-parse-duration` | small function | 1/5 | ✗ | ✗ | 1/5 | ✗ | ✗ | 2/5 | 1/5 | ✗ | 1/5 | 1/5 | ✗ | ✗ | 3/5 | 1/5 | ✗ | ✗ | ✗ | ✗ |  | ✗ | ✗ | ✗ | ✗ | ✗ |  | ✗ |  | ✗ | ✗ |  |  |
-| `bug-py-paginate` | bug finding | 4/5 | 1/5 | 4/5 | ✗ | ✗ | 4/5 | 4/5 | 4/5 | ✗ | ✓ | 3/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ |
-| `bug-py-split-pence` | bug finding | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 3/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `bug-js-top-scores` | bug finding | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `bug-sql-left-join` | bug finding | ✓ | 4/5 | 3/5 | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | 4/5 | 4/5 | ✓ | 4/5 | ✓ | 3/5 | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ |
-| `sql-top-customers` | sql regex | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ |  | ✓ | ✓ |  |  |
-| `sql-monthly-running-total` | sql regex | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | 3/5 | ✓ | ✓ | 1/5 | ✓ | 3/5 | ✓ | ✗ | 3/5 | ✓ | ✓ |  | ✓ | ✗ | ✗ | ✓ | ✓ |  | ✗ |  | ✓ | ✓ |  |  |
-| `sql-latest-status` | sql regex | ✓ | 3/5 | 4/5 | 4/5 | 1/5 | 1/5 | ✓ | 4/5 | 1/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✗ | ✓ |  | ✓ | ✗ | ✗ | ✓ | ✗ |  | ✗ |  | ✗ | ✗ |  |  |
-| `py-regex-log-line` | sql regex | ✓ | 3/5 | 3/5 | 3/5 | 4/5 | 3/5 | ✓ | ✓ | 4/5 | ✓ | 3/5 | ✓ | ✓ | 4/5 | ✓ | ✓ | 2/5 | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✗ |  | ✓ | ✓ |  |  |
-| `explain-js-event-loop` | explain code | 3/5 | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | 1/5 | ✗ | ✓ | 4/5 | ✗ | ✗ | 1/5 | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
-| `explain-py-rate-cache` | explain code | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M |  | M | M | M | M | M |  | M |  | M | M |  |  |
-| `math-batch-job` | maths logic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `math-sla-downtime` | maths logic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `math-pin-count` | maths logic | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `if-three-bullets` | instruction following | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✗ | 4/5 | 4/5 | ✓ | 1/5 | 1/5 | 3/5 | ✓ |  | ✗ | ✗ | ✗ | ✓ | ✓ |  | ✗ |  | ✗ | ✓ |  |  |
-| `if-json-extract` | instruction following | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✗ |  | ✓ | ✓ |  |  |
-| `if-one-sentence` | instruction following | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 1/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ |  | ✓ | ✓ |  |  |
-| `sum-incident` | summarise | ✓ | 4/5 | 3/5 | 4/5 | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | 4/5 | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✓ |  | ✓ | ✓ |  |  |
-| `sum-release-notes` | summarise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✗ |  | ✓ | ✓ |  |  |
-| `hard-py-ttl-cache` | small function | ✓ | 4/5 |  |  |  |  |  |  |  | ✓ | 4/5 |  | ✗ | ✓ | ✓ |  | 2/5 | 2/5 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `hard-py-semver-range` | small function | 2/5 | 3/5 |  |  |  |  |  |  |  | 3/5 | 2/5 |  | ✗ | ✗ | 4/5 |  | ✗ | 1/5 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `hard-py-build-order` | small function | ✓ | 3/5 |  |  |  |  |  |  |  | ✓ | 2/5 |  | ✓ | ✓ | 4/5 |  | 1/5 | 1/5 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `hard-js-apply-patch` | small function | 1/5 | ✗ |  |  |  |  |  |  |  | ✓ | 2/5 |  | ✗ | 2/5 | 2/5 |  | ✗ | ✗ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `hard-sql-city-champion` | sql regex | ✓ | 3/5 |  |  |  |  |  |  |  | ✓ | ✓ |  | ✓ | ✓ | ✓ |  | ✗ | ✗ |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `hard-sql-order-span` | sql regex | ✓ | 3/5 |  |  |  |  |  |  |  | ✓ | ✓ |  | 3/5 | 4/5 | ✓ |  | 4/5 | 1/5 |  |  |  |  |  |  |  |  |  |  |  |  |  |  |
-| `hard-bug-py-allocate` | bug finding | ✓ | ✓ |  |  |  |  |  |  |  | ✓ | ✓ |  | 3/5 | 4/5 | ✓ |  | ✗ | ✓ |  | ✓ |  |  |  |  |  | ✓ |  | ✓ |  |  | ✓ |  |
-| `hard-explain-js-order` | explain code | ✗ | ✗ |  |  |  |  |  |  |  | 1/5 | ✗ |  | ✗ | ✗ | ✗ |  | ✗ | ✗ |  | 1/3 |  |  |  |  |  | ✗ |  | ✗ |  |  | ✗ |  |
-| `hard-math-cron-overlap` | maths logic | ✓ | ✓ |  |  |  |  |  |  |  | ✓ | 3/5 |  | ✓ | ✓ | ✓ |  | ✓ | ✓ |  | ✓ |  |  |  |  |  | ✓ |  | ✓ |  |  | 1/2 |  |
-| `hard-math-retry-budget` | maths logic | ✓ | ✓ |  |  |  |  |  |  |  | ✓ | ✓ |  | 4/5 | ✓ | ✓ |  | ✓ | ✓ |  | ✓ |  |  |  |  |  | ✓ |  | ✓ |  |  | ✓ |  |
+| Task | Category | `pc:gemma4-12b-qat-mtp-cuda` | `pc:gemma4-e4b-qat-mtp-cuda` | `pc:gemma4-e4b-qat-udq4kxl-cuda-b11157` | `pc:gemma4-e4b-qat-udq4kxlpc` | `pc:qwen35-4b-q4km-cuda-b11157` | `pc:gemma4-e4b-qat-udq4kxl-cuda` | `pc:gemma4-26b-a4b-qat-cuda` | `pc:gemma4-12b-qat-udq4kxl-cuda` | `pc:qwen35-4b-q4kmpc` | `pc:gemma4-26b-a4b-qat-mtp-cuda` | `pc:gptoss-20b-q4km-cuda-lowreason` | `pc:empero-qwen38-35b-a3b-distill-q4km-mtp-cuda` | `pc:ornith15-9b-q8-cardsampling-cuda` | `pc:ornith15-35b-a3b-q4km-mtp-cuda` | `pc:katcoder-v25-dev-q4km-cuda` | `pc:qwen38-27b-gsqrco-iq2xs-mtp-cuda` | `pc:qwen36-35b-a3b-udq4km-mtp-cuda` | `pc:ornith15-9b-q8-cuda` | `pc:qwen36-35b-a3b-hauhau-uncensored-q4km-cuda` | `pc:qwen35-4b-q4km-cuda` | `pc:qwen35-9b-q8-cuda` | `laptop:gemma4-e4b-qat-mtp` | `pc:gemma4-12b-qat-mtp-cuda-think` | `laptop:qwen35-4b-q4km` | `laptop:phi4-mini-q4km` | `laptop:qwen38-4b-distill-q4km` | `laptop:gemma4-e4b-q4km` | `laptop:gemma4-e4b-qat-udq4kxl` | `pc:gemma4-26b-a4b-qat-mtp-cuda-think` | `pc:laguna-xs21-q4km-cuda` | `laptop:qwen35-2b-q4km` | `pc:qwen38-27b-gsqrco-iq2xs-mtp-cuda-think` | `laptop:qwen35-9b-q4km` | `laptop:qwen35-4b-q8` | `pc:qwen36-35b-a3b-udq4km-mtp-cuda-think` | `laptop:qwen35-4b-q4km-think` |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `py-parse-date` | small function | 4/5 | 4/5 | ✓ | ✓ | 3/5 | 4/5 | ✓ | ✓ | 4/5 | ✓ | ✓ | 3/5 | 2/5 | 3/5 | ✓ | ✓ | ✓ | 2/5 | ✓ | 3/5 | 2/5 | ✓ |  | ✓ | ✓ | ✗ | ✓ | ✓ |  | ✗ | ✗ |  | ✓ | ✗ |  |  |
+| `py-normalise-order` | small function | ✓ | 1/5 | 4/5 | 3/5 | 1/5 | 3/5 | ✓ | ✓ | 2/5 | 4/5 | 3/5 | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | 1/5 | ✓ | 2/5 | ✗ | ✗ |  | ✓ | ✗ | ✗ | ✗ | ✗ |  | ✓ | ✗ |  | ✓ | ✗ |  |  |
+| `py-merge-slots` | small function | ✓ | ✓ | ✓ | ✓ | 3/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✗ | ✓ |  | ✓ | ✓ |  |  |
+| `js-parse-query` | small function | ✓ | 2/5 | 1/5 | 3/5 | 4/5 | 1/5 | ✓ | ✓ | 2/5 | ✓ | ✓ | ✓ | 1/5 | ✓ | ✓ | 4/5 | ✓ | 2/5 | ✓ | 1/5 | 3/5 | ✗ |  | ✓ | ✗ | ✗ | ✓ | ✓ |  | ✓ | ✗ |  | ✗ | ✓ |  |  |
+| `js-deep-merge` | small function | 3/5 | 2/5 | ✗ | 3/5 | ✗ | ✗ | ✓ | 3/5 | ✗ | ✓ | 3/5 | 1/5 | ✗ | 4/5 | 1/5 | 3/5 | ✓ | ✗ | ✓ | ✗ | 2/5 | ✓ |  | ✗ | ✗ | ✗ | ✗ | ✓ |  | ✗ | ✗ |  | ✗ | ✗ |  |  |
+| `cpp-parse-duration` | small function | 1/5 | ✗ | ✗ | 1/5 | ✗ | ✗ | 2/5 | 1/5 | ✗ | 1/5 | 1/5 | 1/5 | ✗ | ✗ | ✗ | 3/5 | 1/5 | ✗ | 1/5 | ✗ | ✗ | ✗ |  | ✗ | ✗ | ✗ | ✗ | ✗ |  | ✗ | ✗ |  | ✗ | ✗ |  |  |
+| `bug-py-paginate` | bug finding | 4/5 | 1/5 | 4/5 | ✗ | ✗ | 4/5 | 4/5 | 4/5 | ✗ | ✓ | 3/5 | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| `bug-py-split-pence` | bug finding | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 3/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `bug-js-top-scores` | bug finding | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `bug-sql-left-join` | bug finding | ✓ | 4/5 | 3/5 | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✓ | 4/5 | ✓ | 4/5 | ✓ | ✓ | 4/5 | ✓ | 3/5 | ✓ | ✗ | ✓ | ✓ | ✓ | ✗ | ✗ | ✗ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✗ | ✓ | ✓ |
+| `sql-top-customers` | sql regex | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✗ | ✓ |  | ✓ | ✓ |  |  |
+| `sql-monthly-running-total` | sql regex | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | 3/5 | ✓ | ✓ | ✓ | 1/5 | ✓ | ✓ | 3/5 | ✓ | ✗ | ✓ | 3/5 | ✓ | ✓ |  | ✓ | ✗ | ✗ | ✓ | ✓ |  | ✗ | ✗ |  | ✓ | ✓ |  |  |
+| `sql-latest-status` | sql regex | ✓ | 3/5 | 4/5 | 4/5 | 1/5 | 1/5 | ✓ | 4/5 | 1/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✗ | ✓ |  | ✓ | ✗ | ✗ | ✓ | ✗ |  | ✓ | ✗ |  | ✗ | ✗ |  |  |
+| `py-regex-log-line` | sql regex | ✓ | 3/5 | 3/5 | 3/5 | 4/5 | 3/5 | ✓ | ✓ | 4/5 | ✓ | 3/5 | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | 2/5 | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✗ | ✗ |  | ✓ | ✓ |  |  |
+| `explain-js-event-loop` | explain code | 3/5 | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | 1/5 | ✗ | ✓ | 4/5 | ✗ | ✗ | ✗ | ✗ | 1/5 | ✗ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ | ✗ | ✓ | ✗ | ✗ | ✗ | ✗ |
+| `explain-py-rate-cache` | explain code | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M | M |  | M | M | M | M | M |  | M | M |  | M | M |  |  |
+| `math-batch-job` | maths logic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `math-sla-downtime` | maths logic | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `math-pin-count` | maths logic | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `if-three-bullets` | instruction following | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✗ | 4/5 | 3/5 | 4/5 | ✓ | 1/5 | ✓ | 1/5 | 3/5 | ✓ |  | ✗ | ✗ | ✗ | ✓ | ✓ |  | ✗ | ✗ |  | ✗ | ✓ |  |  |
+| `if-json-extract` | instruction following | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✗ | ✗ |  | ✓ | ✓ |  |  |
+| `if-one-sentence` | instruction following | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 1/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ |  | ✓ | ✓ |  |  |
+| `sum-incident` | summarise | ✓ | 4/5 | 3/5 | 4/5 | ✓ | 4/5 | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | 4/5 | ✓ | ✓ | 4/5 | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✓ | ✓ |  | ✓ | ✓ |  |  |
+| `sum-release-notes` | summarise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✗ | ✓ | ✓ | ✓ |  | ✗ | ✗ |  | ✓ | ✓ |  |  |
+| `hard-py-ttl-cache` | small function | ✓ | 4/5 |  |  |  |  |  |  |  | ✓ | 4/5 | 2/5 |  | ✗ | 2/5 | ✓ | ✓ |  | 4/5 | 2/5 | 2/5 |  |  |  |  |  |  |  |  | ✓ |  |  |  |  |  |  |
+| `hard-py-semver-range` | small function | 2/5 | 3/5 |  |  |  |  |  |  |  | 3/5 | 2/5 | 4/5 |  | ✗ | 4/5 | ✗ | 4/5 |  | ✓ | ✗ | 1/5 |  |  |  |  |  |  |  |  | ✓ |  |  |  |  |  |  |
+| `hard-py-build-order` | small function | ✓ | 3/5 |  |  |  |  |  |  |  | ✓ | 2/5 | 3/5 |  | ✓ | ✓ | ✓ | 4/5 |  | ✓ | 1/5 | 1/5 |  |  |  |  |  |  |  |  | ✗ |  |  |  |  |  |  |
+| `hard-js-apply-patch` | small function | 1/5 | ✗ |  |  |  |  |  |  |  | ✓ | 2/5 | 1/5 |  | ✗ | 4/5 | 2/5 | 2/5 |  | 3/5 | ✗ | ✗ |  |  |  |  |  |  |  |  | ✗ |  |  |  |  |  |  |
+| `hard-sql-city-champion` | sql regex | ✓ | 3/5 |  |  |  |  |  |  |  | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✗ | ✗ |  |  |  |  |  |  |  |  | ✗ |  |  |  |  |  |  |
+| `hard-sql-order-span` | sql regex | ✓ | 3/5 |  |  |  |  |  |  |  | ✓ | ✓ | ✓ |  | 3/5 | ✓ | 4/5 | ✓ |  | ✓ | 4/5 | 1/5 |  |  |  |  |  |  |  |  | ✗ |  |  |  |  |  |  |
+| `hard-bug-py-allocate` | bug finding | ✓ | ✓ |  |  |  |  |  |  |  | ✓ | ✓ | 3/5 |  | 3/5 | ✓ | 4/5 | ✓ |  | 2/5 | ✗ | ✓ |  | ✓ |  |  |  |  |  | ✓ | ✗ |  | ✓ |  |  | ✓ |  |
+| `hard-explain-js-order` | explain code | ✗ | ✗ |  |  |  |  |  |  |  | 1/5 | ✗ | ✗ |  | ✗ | ✗ | ✗ | ✗ |  | ✗ | ✗ | ✗ |  | 1/3 |  |  |  |  |  | ✗ | ✗ |  | ✗ |  |  | ✗ |  |
+| `hard-math-cron-overlap` | maths logic | ✓ | ✓ |  |  |  |  |  |  |  | ✓ | 3/5 | 4/5 |  | ✓ | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |  | ✓ |  |  |  |  |  | ✓ | ✓ |  | ✓ |  |  | 1/2 |  |
+| `hard-math-retry-budget` | maths logic | ✓ | ✓ |  |  |  |  |  |  |  | ✓ | ✓ | ✓ |  | 4/5 | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |  | ✓ |  |  |  |  |  | ✓ | ✗ |  | ✓ |  |  | ✓ |  |
 
 ## Charts
 

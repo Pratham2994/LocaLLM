@@ -7,4 +7,4 @@ thinking: false
 sampling: qwen35-nothink-general            # same values as its base, Qwen3.6-35B-A3B, so the two compare
 repeats: 5
 max_tokens: 4096
-server_args: ["--n-cpu-moe", "26"]          # same split as the base model. NOT RUN YET (file not downloaded): check at load whether it has an MTP head; if yes, add "--spec-type", "draft-mtp"
+server_args: ["--n-cpu-moe", "26"]          # same split as the base model. No MTP head in this file (40 blocks, the base's MTP file has 41), so no --spec-type

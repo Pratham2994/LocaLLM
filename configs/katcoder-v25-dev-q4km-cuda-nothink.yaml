@@ -1,0 +1,10 @@
+name: katcoder-v25-dev-q4km-cuda-nothink
+model: Kwaipilot_KAT-Coder-V2.5-Dev-Q4_K_M.gguf   # bartowski/Kwaipilot_KAT-Coder-V2.5-Dev-GGUF, 21.39 GB, MoE; coding fine-tune of Qwen3.6-35B-A3B
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: qwen35-nothink-general            # same values as its base, Qwen3.6-35B-A3B, so the two compare
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "26"]          # same split as the base. No MTP head in this file (40 blocks, the base's MTP file has 41), so no --spec-type

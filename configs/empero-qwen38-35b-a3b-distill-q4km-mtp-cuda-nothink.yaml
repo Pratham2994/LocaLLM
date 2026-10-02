@@ -1,0 +1,10 @@
+name: empero-qwen38-35b-a3b-distill-q4km-mtp-cuda-nothink
+model: Qwen3.8-35B-A3B-Q4_K_M.gguf           # empero-ai/Qwen3.8-35B-A3B-Distill-GGUF, 21.71 GB, MoE; community distill on Qwen3.6-35B-A3B (no official Qwen3.8 35B exists), MTP head inside
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: empero-distill-card               # the card's values: temp 0.6, top_p 0.95, top_k 20
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "26", "--spec-type", "draft-mtp"]   # same split as Qwen3.6-35B-A3B

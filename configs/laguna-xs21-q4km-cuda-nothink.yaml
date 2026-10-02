@@ -1,0 +1,12 @@
+name: laguna-xs21-q4km-cuda-nothink
+model: Laguna-XS-2.1-Q4_K_M.gguf             # ggml-org/Laguna-XS-2.1-GGUF, 19.56 GB, MoE (poolside; 33B, ~3B active), own architecture ("laguna"), no MTP head
+backend: cuda-moe
+ctx: 16384
+kv_cache: f16
+thinking: false
+sampling: laguna-card                       # the card's values: temp 1.0, top_p 1.0, top_k 20 (also stored in the GGUF)
+repeats: 5
+max_tokens: 4096
+server_args: ["--n-cpu-moe", "26"]
+# NOT VALID on llama.cpp b11321 (2026-10-02): the model writes ~480 "〈|" tokens before each answer and "|||" for code
+# fences, so its rows in runs.jsonl are not a fair score (LOCAL_LLM_LAB.md 9.9). Try again on a newer build.

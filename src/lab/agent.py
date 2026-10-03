@@ -198,8 +198,18 @@ def select(tasks: list[AgentTask], patterns: list[str] | None) -> list[AgentTask
 
 # ---------------------------------------------------------------- matching arguments
 
+_TYPOGRAPHIC = str.maketrans({**dict.fromkeys("‐‑‒–—―−", "-"),
+                              **dict.fromkeys("    ", " ")})
+
+
+def plain(text: str) -> str:
+    """Typographic hyphens and no-break spaces as plain ones: a model that writes `INV‑9004` with a
+    non-breaking hyphen has given the right answer (seen with gpt-oss-20b, LOCAL_LLM_LAB.md 9.11)."""
+    return text.translate(_TYPOGRAPHIC)
+
+
 def _norm_str(s: str, key: str | None) -> str:
-    s = " ".join(s.split()).casefold()
+    s = " ".join(plain(s).split()).casefold()
     if key in ("path", "file", "filename"):
         s = posixpath.normpath(s.replace("\\", "/"))
     return s
@@ -368,6 +378,7 @@ def _contains_all(text: str, items: list) -> list:
 def grade_tool(task: AgentTask, calls: list[dict], final: str, bad: list[str]) -> CheckResult:
     """`calls` = [{"name", "args"}] in the order the model made them."""
     ex = task.spec["expect"]
+    final = plain(final)
     if bad:
         return CheckResult(False, "bad tool call: " + "; ".join(bad[:3]))
     names = [c["name"] for c in calls]
@@ -394,6 +405,15 @@ def grade_tool(task: AgentTask, calls: list[dict], final: str, bad: list[str]) -
         if not re.search(p, final, re.S | re.I):
             return CheckResult(False, f"final answer does not match {p!r}: {final[:200]!r}")
     return CheckResult(True, f"{len(calls)} call(s), final answer accepted")
+
+
+def regrade_tool_row(task: AgentTask, row: dict) -> bool | None:
+    """Grade a stored tool-task row again with the current grader (the row keeps the calls and the
+    final answer). Returns the stored result when an argument was cut for storage."""
+    if any(isinstance(v, str) and v.endswith(" chars]") for c in row["calls"] for v in (c["args"] or {}).values()):
+        return row["passed"]
+    calls = [{"name": c["name"], "args": c["args"]} for c in row["calls"]]
+    return grade_tool(task, calls, row.get("final") or "", row.get("bad_calls") or []).passed
 
 
 # ---------------------------------------------------------------- the loop

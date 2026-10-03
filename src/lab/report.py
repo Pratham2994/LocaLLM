@@ -265,6 +265,10 @@ def _agent_section() -> list[str]:
         newest[(r["machine"], r["config"])] = r["config_hash"]
     rows = [r for r in rows if current.get(r["task"]) == r["task_hash"] and r.get("agent_version") == agent.AGENT_VERSION
             and newest[(r["machine"], r["config"])] == r["config_hash"]]
+    by_id = {t.id: t for t in tasks}
+    for r in rows:   # tool rows are graded again with the current grader (a grader fix then applies to old runs)
+        if r["kind"] == "tool" and r["finish"] not in ("error", "context_overflow"):
+            r["passed"] = agent.regrade_tool_row(by_id[r["task"]], r)
     configs = list(dict.fromkeys((r["machine"], r["config"]) for r in rows))
 
     def cell(sel: list[dict]) -> str:

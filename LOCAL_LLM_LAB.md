@@ -96,7 +96,8 @@ You are continuing a learning project on running LLMs locally. Rules:
 - [x] ~~Final agent verdict after 5 rounds~~ Agent verdict after **2 full rounds** (2026-10-03; Pratham's decision to stop there, so the "full run" item above stays open and is not planned): Qwen3.6-35B-A3B + MTP is the agent model (9.11)
 - [x] Pi 1.0.0 connected to `llama-server` (`~/.pi/agent/models.json`, provider `local`); fixed prompt measured: ~2,000 tokens; `read` and `bash` tools work (12.8)
 - [x] Pi: the two safety packages installed, policy written and tested on dummy files (12.8)
-- [ ] Pi: one real session with Qwen3.6-35B and the browser open; then `pi-web-access` and plan mode, one at a time (12.8)
+- [x] Pi: first real session with Qwen3.6-35B and the browser open (2026-10-03): works, 44-83 tok/s, RAM left ~0.5 GiB (12.8)
+- [ ] Pi: `pi-web-access` and plan mode, one at a time; a longer session on real work (12.8)
 - [ ] Pratham: review the hard tasks (section 8)
 - [x] Page file raised to 16 GB (Pratham, 2026-10-02; 9.9)
 - [x] Leftover partial downloads and llama.cpp zips deleted (28.3 GB, 2026-10-02); git identity set on the PC, results committed
@@ -1823,6 +1824,13 @@ Sources: Hugging Face API and model cards (2026-10-01); GitHub releases of `ggml
   - **The two packages add no prompt tokens:** the first request is still 1,999 tokens.
   - These are guards against accidents, not a hard wall (12.8 above).
 - **Warning: Pi's default model on this PC is DeepSeek V4 Pro in the cloud** (through the `DEEPSEEK_API_KEY` user variable). Plain `pi` therefore sends the conversation, the project's `CLAUDE.md` and tool results to DeepSeek. For local work always start `pi --model local/llama-server`, or save the local model as the default (`/model`, then Ctrl+S). On 2026-10-03 Claude Code typed `pi --offline list` to list packages; Pi read `list` as a question and sent one request to DeepSeek from the lab folder (`CLAUDE.md`, the output of `uv run lab tasks` and the config file names; two read-only commands, no file changed, under 1 cent). `--offline` stops only the start-up network checks, not model calls. Pi commands such as `list` and `install` must be the first word after `pi`.
+- **First real Pi session (2026-10-03 16:57-16:59, Pratham; Qwen3.6-35B-A3B + MTP, thinking on, 32K context, `--n-cpu-moe 27`; Brave open with 3.5-4.1 GiB; practice copy of the project in `D:\02_Code\Inference\pi-playground\depot`).** Three tasks in one conversation, 11 model turns, about 2 minutes in all:
+  - Explain how an order gets its total: 3 turns, 17 s, correct, each step with its file.
+  - Add `top_customers(orders, n)` with checks: 6 turns, 44 s. The function is correct and reuses the project's `_live` helper; it worked out the expected values by hand before it wrote the two checks; the tests pass (54 checks, run again by Claude Code).
+  - Bug report "the Irish invoice shows the wrong VAT": 2 turns, 37 s, answered "not true" with a printed invoice and the calculation. **Not a valid test:** the explanation lines under each prompt were pasted in with it, so the prompt itself said that the code is correct.
+  - **Speed: 44-83 tok/s per turn including the prompt processing** (from the token counts and times in Pi's session file); the prompt cache worked (12,822 of 13,322 prompt tokens came from the cache in the last turn). The context reached about 14,000 tokens after the three tasks.
+  - **Memory with the browser open:** RAM available to other programs fell from 10.6 GiB to a median of 0.5 GiB (minimum 0.2), server working set 20.4 GiB, GPU 11.4-11.6 GiB of 12.2 in use, commit 27-30 GB of 47 GB. The speed stayed normal and nothing was stopped. So a browser of ~4 GiB works beside the 35B model, with no reserve left. Not tested: a longer session, more tabs, an editor.
+- **Skills in Pi:** Pi lists `design-taste-frontend` and `find-skills`. They are not part of Pi: they are in `C:\Users\admin\.agents\skills\` (installed on 2026-09-06 by another tool), a folder Pi reads by default, as it reads `.agents/skills/` in a project and `~/.pi/agent/skills/`. Pi puts only each skill's name and description in the prompt; the model reads the `SKILL.md` when the task matches, or `/skill:<name>` forces it. **`design-taste-frontend`'s `SKILL.md` is 86 KB, about 20,000 tokens: loading it takes most of a 32K context.** Do not use it with the local model as it is.
 - Sources: patloeber.com/gemma-4-pi-agent (Gemma 4 with Pi), systima.ai/blog/claude-code-vs-opencode-token-overhead (opencode's 6,900 tokens), github.com/can1357/oh-my-pi, pi.dev/packages.
 
 ## 13. Glossary and sources

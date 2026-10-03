@@ -1,6 +1,6 @@
 # Harness report
 
-Generated 2026-10-03 11:25 from `runs.jsonl` (4101 current runs; 34 tasks in `tasks.yaml`). Sorted by correct answers per hour.
+Generated 2026-10-03 16:12 from `runs.jsonl` (4101 current runs; 34 tasks in `tasks.yaml`). Sorted by correct answers per hour.
 
 - **Correct answers per hour** = passed auto-graded runs ÷ hours of wall time spent on them.
 - Thinking-on configs run only the tasks marked `thinking: on/both`, so compare them with care.
@@ -156,43 +156,43 @@ The model works through tools over several turns (`tasks/agent.yaml`). Tool call
 
 | Config | Thinking | Tool calls | Small repo tasks | Project tasks | Project tasks, big repo | Median steps (project) | Median s per project task | Largest prompt (tokens) | Bad calls | Ended without a final answer |
 |---|---|---|---|---|---|---|---|---|---|---|
-| `agent-katcoder-v25-dev-think` | on | 23/26 | – | 19/22 (98%) | 12/13 (98%) | 6 | 54 | 22736 | 0 | 3 |
-| `agent-qwen36-35b-a3b-mtp-think` | on | 13/13 | – | 10/11 (94%) | 11/11 (100%) | 8 | 41 | 13235 | 0 | 1 |
-| `agent-ornith15-35b-a3b-mtp-think` | on | 13/13 | – | 10/11 (91%) | 11/11 (100%) | 11 | 82 | 29593 | 0 | 1 |
+| `agent-katcoder-v25-dev-think` | on | 23/26 | – | 19/22 (98%) | 20/22 (99%) | 6 | 55 | 22736 | 0 | 3 |
+| `agent-qwen36-35b-a3b-mtp-think` | on | 25/26 | – | 20/22 (93%) | 21/22 (95%) | 8 | 46 | 14816 | 0 | 3 |
+| `agent-ornith15-35b-a3b-mtp-think` | on | 26/26 | – | 19/22 (90%) | 20/22 (95%) | 14 | 97 | 29593 | 0 | 3 |
+| `agent-gemma4-12b-qat-mtp-think` | on | 36/39 | – | 21/26 (90%) | 16/22 (83%) | 13 | 66 | 24801 | 3 | 7 |
 | `agent-gemma4-26b-a4b-qat-mtp-think` | on | 24/26 | – | 18/22 (94%) | 14/22 (78%) | 14 | 136 | 20858 | 2 | 7 |
-| `agent-gemma4-12b-qat-mtp-think` | on | 24/26 | – | 17/22 (88%) | 16/22 (83%) | 14 | 71 | 24801 | 3 | 7 |
-| `agent-qwen35-4b-think` | on | 13/13 | – | 8/11 (79%) | 6/11 (72%) | 22 | 59 | 19684 | 0 | 18 |
+| `agent-qwen35-4b-think` | on | 26/26 | – | 16/22 (86%) | 13/22 (74%) | 24 | 57 | 19684 | 0 | 33 |
 | `agent-gptoss-20b-think` | on | 22/26 | – | 9/22 (58%) | 11/22 (69%) | 18 | 62 | 22681 | 0 | 20 |
 
 Memory with the model loaded, after the run (32K context): GPU = all programs on the card; RAM left = what Windows can still give to other programs.
 
 | Config | GPU in use MiB | Server in RAM GiB | RAM left GiB (before the model) |
 |---|---|---|---|
-| `agent-katcoder-v25-dev-think` | 10380 | 22.38 | 1.46 (23.8) |
-| `agent-qwen36-35b-a3b-mtp-think` | 11210 | 22.5 | 1.87 (24.38) |
-| `agent-ornith15-35b-a3b-mtp-think` | 11132 | 23.2 | 1.13 (23.88) |
-| `agent-gemma4-26b-a4b-qat-mtp-think` | 10264 | 18.02 | 6.71 (24.4) |
+| `agent-katcoder-v25-dev-think` | 10409 | 21.04 | 1.56 (22.02) |
+| `agent-qwen36-35b-a3b-mtp-think` | 11286 | 21.0 | 2.23 (21.53) |
+| `agent-ornith15-35b-a3b-mtp-think` | 11259 | 22.15 | 2.42 (22.69) |
 | `agent-gemma4-12b-qat-mtp-think` | 8852 | 16.1 | 8.25 (24.44) |
-| `agent-qwen35-4b-think` | 4758 | 3.32 | 21.05 (24.38) |
+| `agent-gemma4-26b-a4b-qat-mtp-think` | 10264 | 18.02 | 6.71 (24.4) |
+| `agent-qwen35-4b-think` | 4897 | 4.67 | 19.98 (24.85) |
 | `agent-gptoss-20b-think` | 10360 | 11.39 | 13.27 (24.78) |
 
 Per agent task (passed / runs):
 
-| Task | Tier | `katcoder-v25-dev-think` | `qwen36-35b-a3b-mtp-think` | `ornith15-35b-a3b-mtp-think` | `gemma4-26b-a4b-qat-mtp-think` | `gemma4-12b-qat-mtp-think` | `qwen35-4b-think` | `gptoss-20b-think` |
+| Task | Tier | `katcoder-v25-dev-think` | `qwen36-35b-a3b-mtp-think` | `ornith15-35b-a3b-mtp-think` | `gemma4-12b-qat-mtp-think` | `gemma4-26b-a4b-qat-mtp-think` | `qwen35-4b-think` | `gptoss-20b-think` |
 |---|---|---|---|---|---|---|---|---|
-| `tc-single-call` | Tool calls | 0/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
-| `tc-choose-tool` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
-| `tc-no-tool-needed` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
-| `tc-args-types` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 1/2 |
-| `tc-two-step` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
-| `tc-parallel` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 0/2 |
-| `tc-use-result` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
-| `tc-error-recovery` | Tool calls | 1/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
-| `tc-escaping` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 1/2 |
-| `tc-long-result` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
-| `tc-missing-info` | Tool calls | 2/2 | 1/1 | 1/1 | 0/2 | 0/2 | 1/1 | 2/2 |
-| `tc-unknown-tool` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
-| `tc-chain-three` | Tool calls | 2/2 | 1/1 | 1/1 | 2/2 | 2/2 | 1/1 | 2/2 |
+| `tc-single-call` | Tool calls | 0/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
+| `tc-choose-tool` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
+| `tc-no-tool-needed` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
+| `tc-args-types` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 1/2 |
+| `tc-two-step` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
+| `tc-parallel` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 0/2 |
+| `tc-use-result` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
+| `tc-error-recovery` | Tool calls | 1/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
+| `tc-escaping` | Tool calls | 2/2 | 1/2 | 2/2 | 3/3 | 2/2 | 2/2 | 1/2 |
+| `tc-long-result` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
+| `tc-missing-info` | Tool calls | 2/2 | 2/2 | 2/2 | 0/3 | 0/2 | 2/2 | 2/2 |
+| `tc-unknown-tool` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
+| `tc-chain-three` | Tool calls | 2/2 | 2/2 | 2/2 | 3/3 | 2/2 | 2/2 | 2/2 |
 | `ag-py-fix-threshold` | Small repo tasks | – | – | – | – | – | – | – |
 | `ag-py-add-reservations` | Small repo tasks | – | – | – | – | – | – | – |
 | `ag-py-three-bugs` | Small repo tasks | – | – | – | – | – | – | – |
@@ -201,28 +201,28 @@ Per agent task (passed / runs):
 | `ag-py-json-format` | Small repo tasks | – | – | – | – | – | – | – |
 | `ag-js-fix-money` | Small repo tasks | – | – | – | – | – | – | – |
 | `ag-js-title-case` | Small repo tasks | – | – | – | – | – | – | – |
-| `ag-depot-weight` | Project tasks | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 1/2 (50%) |
-| `ag-depot-cancel` | Project tasks | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 1/2 (93%) |
-| `ag-depot-dates` | Project tasks | 2/2 (100%) | 0/1 (38%) | 1/1 (100%) | 2/2 (100%) | 1/2 (69%) | 0/1 (0%) | 2/2 (100%) |
-| `ag-depot-merge` | Project tasks | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 1/2 (50%) |
-| `ag-depot-rename-field` | Project tasks | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 1/2 (62%) | 2/2 (100%) | 1/1 (100%) | 1/2 (50%) |
-| `ag-depot-coupon` | Project tasks | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 0/2 (80%) | 1/2 (60%) | 1/1 (100%) | 0/2 (35%) |
-| `ag-depot-returns` | Project tasks | 1/2 (89%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 1/2 (96%) | 0/1 (64%) | 0/2 (64%) |
-| `ag-depot-price-list` | Project tasks | 0/2 (90%) | 1/1 (100%) | 0/1 (0%) | 1/2 (95%) | 0/2 (45%) | 0/1 (10%) | 0/2 (45%) |
-| `ag-depot-issue-stock-leak` | Project tasks | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 1/2 (50%) |
-| `ag-depot-issue-short-pick` | Project tasks | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 1/2 (50%) |
-| `ag-depot-issue-vat` | Project tasks | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 1/2 (50%) |
-| `ag-depot-weight-big` | Project tasks, big repo | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 1/2 (50%) | 1/1 (100%) | 2/2 (100%) |
-| `ag-depot-cancel-big` | Project tasks, big repo | 2/2 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 1/2 (79%) |
-| `ag-depot-dates-big` | Project tasks, big repo | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) | 0/2 (38%) | 2/2 (100%) | 0/1 (38%) | 2/2 (100%) |
-| `ag-depot-merge-big` | Project tasks, big repo | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 0/1 (0%) | 2/2 (100%) |
-| `ag-depot-rename-field-big` | Project tasks, big repo | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 1/2 (50%) |
-| `ag-depot-coupon-big` | Project tasks, big repo | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) | 0/2 (45%) | 1/2 (95%) | 0/1 (90%) | 0/2 (10%) |
-| `ag-depot-returns-big` | Project tasks, big repo | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) | 1/2 (86%) | 0/2 (25%) | 0/1 (0%) | 0/2 (82%) |
-| `ag-depot-price-list-big` | Project tasks, big repo | 0/1 (80%) | 1/1 (100%) | 1/1 (100%) | 1/2 (95%) | 1/2 (95%) | 0/1 (60%) | 0/2 (85%) |
-| `ag-depot-issue-stock-leak-big` | Project tasks, big repo | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) | 1/2 (50%) | 2/2 (100%) | 1/1 (100%) | 0/2 (0%) |
-| `ag-depot-issue-short-pick-big` | Project tasks, big repo | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) | 2/2 (100%) | 2/2 (100%) | 1/1 (100%) | 2/2 (100%) |
-| `ag-depot-issue-vat-big` | Project tasks, big repo | 1/1 (100%) | 1/1 (100%) | 1/1 (100%) | 1/2 (50%) | 1/2 (50%) | 1/1 (100%) | 1/2 (50%) |
+| `ag-depot-weight` | Project tasks | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) | 3/3 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) |
+| `ag-depot-cancel` | Project tasks | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 3/3 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (93%) |
+| `ag-depot-dates` | Project tasks | 2/2 (100%) | 0/2 (19%) | 2/2 (100%) | 2/3 (79%) | 2/2 (100%) | 1/2 (50%) | 2/2 (100%) |
+| `ag-depot-merge` | Project tasks | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 3/3 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) |
+| `ag-depot-rename-field` | Project tasks | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (62%) | 2/2 (100%) | 1/2 (50%) |
+| `ag-depot-coupon` | Project tasks | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (60%) | 0/2 (80%) | 1/2 (95%) | 0/2 (35%) |
+| `ag-depot-returns` | Project tasks | 1/2 (89%) | 2/2 (100%) | 2/2 (100%) | 1/2 (96%) | 2/2 (100%) | 0/2 (71%) | 0/2 (64%) |
+| `ag-depot-price-list` | Project tasks | 0/2 (90%) | 2/2 (100%) | 0/2 (45%) | 0/2 (45%) | 1/2 (95%) | 0/2 (35%) | 0/2 (45%) |
+| `ag-depot-issue-stock-leak` | Project tasks | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) |
+| `ag-depot-issue-short-pick` | Project tasks | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) |
+| `ag-depot-issue-vat` | Project tasks | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) |
+| `ag-depot-weight-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) |
+| `ag-depot-cancel-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (79%) |
+| `ag-depot-dates-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) | 2/2 (100%) | 0/2 (38%) | 0/2 (19%) | 2/2 (100%) |
+| `ag-depot-merge-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) | 2/2 (100%) |
+| `ag-depot-rename-field-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) |
+| `ag-depot-coupon-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (95%) | 0/2 (45%) | 0/2 (85%) | 0/2 (10%) |
+| `ag-depot-returns-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 0/2 (25%) | 1/2 (86%) | 0/2 (7%) | 0/2 (82%) |
+| `ag-depot-price-list-big` | Project tasks, big repo | 0/2 (85%) | 2/2 (100%) | 1/2 (95%) | 1/2 (95%) | 1/2 (95%) | 0/2 (55%) | 0/2 (85%) |
+| `ag-depot-issue-stock-leak-big` | Project tasks, big repo | 2/2 (100%) | 1/2 (50%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) | 2/2 (100%) | 0/2 (0%) |
+| `ag-depot-issue-short-pick-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) |
+| `ag-depot-issue-vat-big` | Project tasks, big repo | 2/2 (100%) | 2/2 (100%) | 2/2 (100%) | 1/2 (50%) | 1/2 (50%) | 2/2 (100%) | 1/2 (50%) |
 
 ## Needle in a haystack (`lab needle`)
 

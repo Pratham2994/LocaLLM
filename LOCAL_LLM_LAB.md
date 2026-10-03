@@ -1841,6 +1841,21 @@ Sources: Hugging Face API and model cards (2026-10-01); GitHub releases of `ggml
   - **Web search: `pi-web-access@0.35.0`, off by default, on with the command `piweb`.** With all four of its tools on, Pi's fixed prompt was 6,035 tokens against 2,620 without them (the four tool definitions cost about 3,400 tokens, 10% of a 32K context). So `settings.json` lists the package with `"extensions": []` (installed, not loaded), and `C:\Users\admin\.pi\agent\bin\piweb.cmd` starts Pi with the package loaded and only `web_search` and `fetch_content` on (4,746 tokens). `defaultTools` with `-web_search` does not switch an extension's tools off (tried). Search needs no API key (it uses Exa's public endpoint), so **the search words leave the PC**; the model itself stays local. Tested: two searches answered correctly with the source.
   - **Fixed prompt now: 2,627 tokens for `pi`** (base 1,671 + `AGENTS.md` 440 + the skill list 510), **4,746 for `piweb`**.
   - Default model saved by Pratham: `local/llama-server` (`defaultProvider` / `defaultModel` in `settings.json`), so plain `pi` no longer goes to DeepSeek.
+- **Frontend comparison, one open prompt (2026-10-03 17:20-17:48, Pratham): "make something cool, a beautiful HTML frontend with GSAP scroll animations and images, frontend only".** Gemma 4 12B and Qwen3.6-35B in Pi (thinking on, with the short `frontend-taste` skill), Claude Opus 5.5 at medium effort in Claude Code (with the full impeccable and brainstorming skills, image downloads and a browser check). Checked by Claude Code: every URL tested, each page opened in a browser, screenshots read. One run each, so this is an impression, not a measurement.
+
+  | | Gemma 4 12B (`test`) | Qwen3.6-35B (`test2`) | Claude Opus 5.5 (`test3`) |
+  |---|---|---|---|
+  | Time | ~1.5 min of model time (8 turns, 138 tok/s) | ~6 min (8 turns, 88 tok/s) | ~15 min |
+  | Output | 1 file, 265 lines, 3 sections | 2 files, ~340 lines, 7 sections | 3 files, ~1,260 lines + 23 local images |
+  | Does it run? | **No**: the Lenis script URL is 404, so `new Lenis()` throws and all later code stops: no animation, the cursor circle stays in the corner | Yes, no console error | Yes, no console error |
+  | Images | 2 of 5 broken, and 2 of the 3 gallery cards show the same picture | 1 of 12 broken (the "about" picture) | 0 of 23 broken (downloaded NASA files) |
+  | Look | Generic AI template: centred hero on a purple gradient, gradient heading, three equal cards | A clean, usual agency page: left-aligned hero, one amber accent, marquee, pinned horizontal section | An own idea (the Voyager route; scroll = distance from the Sun; colour plates come into register), custom type and layout |
+  | Followed the skill? | Loaded it, then broke most of it (Unsplash ids from memory, gradient text, centred hero, three cards, custom cursor) | Mostly (one accent, one font, one radius, left hero); still Unsplash ids from memory and a custom cursor | Its own, larger skills |
+
+  - **Order of quality: Opus far ahead, Qwen3.6-35B usable, Gemma 4 12B not usable for this.** The gap between the local models is larger here than in the agent tier.
+  - **Both local models wasted turns on the `write` tool.** Gemma called it twice without `path` (3,600-4,000 tokens each time). Qwen wrote the whole page into one call and hit the 8,192-token output limit twice (2 × 85 s lost), then split the work into two files on its own; its context reached 28,700 of 32,768 tokens and its last answer was cut.
+  - Neither local model checked its own links or opened the page; Opus did both and fixed two defects it found.
+  - **Changes made from this:** `frontend-taste` now says: never write an image URL from memory, check every URL with `curl`, guard optional libraries so one missing script cannot stop the page, no custom cursor, and write `index.html` / `styles.css` / `main.js` as separate files under ~300 lines. The global `AGENTS.md` got a short "Writing files" rule (files under ~300 lines; every `write` needs `path`). Not re-tested yet.
 - Sources: patloeber.com/gemma-4-pi-agent (Gemma 4 with Pi), systima.ai/blog/claude-code-vs-opencode-token-overhead (opencode's 6,900 tokens), github.com/can1357/oh-my-pi, pi.dev/packages.
 
 ## 13. Glossary and sources

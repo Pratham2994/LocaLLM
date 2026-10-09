@@ -30,7 +30,7 @@ You are continuing a learning project on running LLMs locally. Rules:
 4. **Environment:** Windows 11, PowerShell, Python 3.14 managed with **uv** (`uv add`, `uv run`). Never use pip inside the project. `huggingface_hub` is installed globally with pip; `hf` is on PATH.
 5. **Explain as you go.** Pratham is learning. When you run a command, say in 1-2 plain sentences what it does and what the output means. Short sentences, simple words.
 6. **Ask before** deleting files, installing system-wide software, or anything that needs admin rights.
-7. **Never** put work (Barclays) code or data in test tasks. Use made-up code.
+7. **Never** put code or data from work in test tasks. Use made-up code.
 8. If the user reports results from another chat, merge them into section 9 and the Status board.
 
 ---
@@ -138,7 +138,7 @@ You are continuing a learning project on running LLMs locally. Rules:
 
 ## 2. Goal and context
 
-**Who:** Pratham, software engineer (Barclays). New to local LLMs. Wants to learn inference engines, quantisation, model sizes, and how to pick and run open models well.
+**Who:** Pratham, software engineer. New to local LLMs. Wants to learn inference engines, quantisation, model sizes, and how to pick and run open models well.
 
 **Goal of the laptop week:** learn the **method** (measure speed, quality, memory; build a reusable harness). Not to find the final model.
 

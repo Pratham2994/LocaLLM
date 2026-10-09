@@ -55,7 +55,7 @@ While a run is in progress, `uv run` may fail to reinstall `lab.exe` (locked); u
 - Smart App Control is ON on the laptop: it randomly blocks freshly compiled C++ test programs.
   Those runs are stored as `passed: null` (not graded), never as failures.
 - Task YAML: bare `on`/`off` are booleans in YAML; the loader accepts both spellings.
-- Made-up code and data only. Never work (Barclays) code.
+- Made-up code and data only. Never code from work.
 - Windows + PowerShell, Python 3.14 via uv (`uv add`, `uv run`), never pip in the project.
 - British English in reports. Explain commands in 1-2 plain sentences (Pratham is learning).
 - On the PC always name the configs (`configs\<name>-cuda-….yaml`): a plain `lab run` also loads the
